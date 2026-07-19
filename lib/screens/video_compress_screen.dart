@@ -22,21 +22,38 @@ class _VideoCompressScreenState extends State<VideoCompressScreen> {
   VideoQuality _videoQuality = VideoQuality.medium;
   double _videoProgress = 0.0;
   bool _isVideoCompressing = false;
+  bool _isPickingFile = false;
   int _videoTimeTakenMs = 0;
 
   Future<void> _pickVideo() async {
-    final result = await FilePicker.platform.pickFiles(
-      type: FileType.video,
-      allowMultiple: false,
-    );
+    setState(() => _isPickingFile = true);
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.video,
+        allowMultiple: false,
+      );
 
-    if (result != null && result.files.single.path != null) {
-      setState(() {
-        _originalVideo = File(result.files.single.path!);
-        _compressedVideo = null;
-        _videoProgress = 0.0;
-        _videoTimeTakenMs = 0;
-      });
+      if (result != null && result.files.single.path != null) {
+        final path = result.files.single.path!;
+        // Get file size in background to avoid blocking UI
+        final file = File(path);
+        setState(() {
+          _originalVideo = file;
+          _compressedVideo = null;
+          _videoProgress = 0.0;
+          _videoTimeTakenMs = 0;
+        });
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('ไม่สามารถเปิดไฟล์วิดีโอได้: $e'),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isPickingFile = false);
     }
   }
 
@@ -202,10 +219,38 @@ class _VideoCompressScreenState extends State<VideoCompressScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (_originalVideo == null) ...[
+          if (_isPickingFile) ...[
+            GlowingContainer(
+              gradientColors: const [Color(0xFF8E2DE2), Color(0xFFD500F9)],
+              shadowColor: const Color(0xFF8E2DE2),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 20),
+                child: Column(
+                  children: [
+                    const LinearProgressIndicator(
+                      color: Color(0xFFD500F9),
+                      backgroundColor: Colors.white10,
+                      minHeight: 6,
+                    ),
+                    const SizedBox(height: 24),
+                    const Text(
+                      'กำลังโหลดไฟล์วิดีโอ...',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white),
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'ไฟล์วิดีโอขนาดใหญ่อาจใช้เวลาสักครู่\nโปรดรอสักครู่',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: Colors.white60, fontSize: 12, height: 1.5),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ] else if (_originalVideo == null) ...[
             GlowPickerArea(
               title: 'เลือกวิดีโอเพื่อบีบอัด',
-              subtitle: 'บีบอัดวิดีโอออฟไลน์ประสิทธิภาพสูง',
+              subtitle: 'รองรับไฟล์วิดีโอทุกขนาด (รวมถึงไฟล์ขนาดใหญ่)',
               icon: Icons.video_call_rounded,
               onTap: _pickVideo,
               gradientColors: const [Color(0xFF8E2DE2), Color(0xFFD500F9)],

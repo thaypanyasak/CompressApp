@@ -6,6 +6,10 @@ class VideoPreviewWidget extends StatefulWidget {
   final File file;
   final String title;
 
+  // Max file size to attempt preview (300MB). Above this, skip AVPlayer init
+  // to prevent iOS Jetsam (OOM kill) on large video files.
+  static const int _previewMaxBytes = 300 * 1024 * 1024; // 300MB
+
   const VideoPreviewWidget({
     super.key,
     required this.file,
@@ -17,39 +21,70 @@ class VideoPreviewWidget extends StatefulWidget {
 }
 
 class _VideoPreviewWidgetState extends State<VideoPreviewWidget> {
-  late VideoPlayerController _controller;
+  VideoPlayerController? _controller;
   bool _isInitialized = false;
   bool _hasError = false;
+  bool _fileTooLarge = false;
+  int _fileSize = 0;
 
   @override
   void initState() {
     super.initState();
-    _initializeController();
+    _checkAndInitialize();
   }
 
   @override
   void didUpdateWidget(covariant VideoPreviewWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.file.path != widget.file.path) {
-      _controller.dispose();
+      _controller?.dispose();
+      _controller = null;
       _isInitialized = false;
       _hasError = false;
-      _initializeController();
+      _fileTooLarge = false;
+      _checkAndInitialize();
+    }
+  }
+
+  Future<void> _checkAndInitialize() async {
+    try {
+      final size = await widget.file.length();
+      if (!mounted) return;
+
+      setState(() {
+        _fileSize = size;
+        _fileTooLarge = size > VideoPreviewWidget._previewMaxBytes;
+      });
+
+      // Only attempt AVPlayer init for files ≤ 300MB to protect iOS from OOM
+      if (!_fileTooLarge) {
+        await _initializeController();
+      }
+    } catch (e) {
+      debugPrint('Error checking file size: $e');
+      if (mounted) setState(() => _hasError = true);
     }
   }
 
   Future<void> _initializeController() async {
-    _controller = VideoPlayerController.file(widget.file);
     try {
-      await _controller.initialize();
+      _controller = VideoPlayerController.file(widget.file);
+      await _controller!.initialize().timeout(
+        const Duration(seconds: 30),
+        onTimeout: () {
+          throw Exception('Timeout loading video preview');
+        },
+      );
+      if (!mounted) return;
       setState(() {
         _isInitialized = true;
       });
-      _controller.addListener(() {
+      _controller!.addListener(() {
         if (mounted) setState(() {});
       });
     } catch (e) {
       debugPrint('Error initializing video player: $e');
+      if (!mounted) return;
       setState(() {
         _hasError = true;
       });
@@ -58,7 +93,7 @@ class _VideoPreviewWidgetState extends State<VideoPreviewWidget> {
 
   @override
   void dispose() {
-    _controller.dispose();
+    _controller?.dispose();
     super.dispose();
   }
 
@@ -69,30 +104,27 @@ class _VideoPreviewWidgetState extends State<VideoPreviewWidget> {
     return '$minutes:$seconds';
   }
 
+  String _formatBytes(int bytes) {
+    if (bytes <= 0) return '0 B';
+    const suffixes = ['B', 'KB', 'MB', 'GB'];
+    var i = 0;
+    double size = bytes.toDouble();
+    while (size >= 1024 && i < suffixes.length - 1) {
+      size /= 1024;
+      i++;
+    }
+    return '${size.toStringAsFixed(1)} ${suffixes[i]}';
+  }
+
   @override
   Widget build(BuildContext context) {
+    // File too large — skip preview entirely, show info card instead
+    if (_fileTooLarge) {
+      return _buildLargeFilePlaceholder();
+    }
+
     if (_hasError) {
-      return Container(
-        height: 200,
-        decoration: BoxDecoration(
-          color: Colors.red.withAlpha(30),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.red.withAlpha(50)),
-        ),
-        child: const Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.error_outline, color: Colors.redAccent, size: 36),
-              SizedBox(height: 8),
-              Text(
-                'ไม่สามารถเล่นวิดีโอนี้ได้',
-                style: TextStyle(color: Colors.white70, fontSize: 14),
-              ),
-            ],
-          ),
-        ),
-      );
+      return _buildErrorPlaceholder();
     }
 
     if (!_isInitialized) {
@@ -103,15 +135,25 @@ class _VideoPreviewWidgetState extends State<VideoPreviewWidget> {
           borderRadius: BorderRadius.circular(16),
         ),
         child: const Center(
-          child: CircularProgressIndicator(
-            valueColor: AlwaysStoppedAnimation<Color>(Colors.purpleAccent),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation<Color>(Colors.purpleAccent),
+              ),
+              SizedBox(height: 16),
+              Text(
+                'กำลังโหลดตัวอย่างวิดีโอ...',
+                style: TextStyle(color: Colors.white60, fontSize: 13),
+              ),
+            ],
           ),
         ),
       );
     }
 
-    final duration = _controller.value.duration;
-    final position = _controller.value.position;
+    final duration = _controller!.value.duration;
+    final position = _controller!.value.position;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -135,29 +177,28 @@ class _VideoPreviewWidgetState extends State<VideoPreviewWidget> {
             alignment: Alignment.center,
             children: [
               AspectRatio(
-                aspectRatio: _controller.value.aspectRatio,
-                child: VideoPlayer(_controller),
+                aspectRatio: _controller!.value.aspectRatio,
+                child: VideoPlayer(_controller!),
               ),
-              // Gradient overlay for controls
               Positioned.fill(
                 child: GestureDetector(
                   onTap: () {
                     setState(() {
-                      if (_controller.value.isPlaying) {
-                        _controller.pause();
+                      if (_controller!.value.isPlaying) {
+                        _controller!.pause();
                       } else {
-                        _controller.play();
+                        _controller!.play();
                       }
                     });
                   },
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 300),
                     decoration: BoxDecoration(
-                      color: _controller.value.isPlaying
+                      color: _controller!.value.isPlaying
                           ? Colors.transparent
                           : Colors.black.withAlpha(100),
                     ),
-                    child: _controller.value.isPlaying
+                    child: _controller!.value.isPlaying
                         ? const SizedBox.shrink()
                         : const Center(
                             child: CircleAvatar(
@@ -173,7 +214,6 @@ class _VideoPreviewWidgetState extends State<VideoPreviewWidget> {
                   ),
                 ),
               ),
-              // Video Controls Bar
               Positioned(
                 bottom: 0,
                 left: 0,
@@ -191,17 +231,17 @@ class _VideoPreviewWidgetState extends State<VideoPreviewWidget> {
                     children: [
                       IconButton(
                         icon: Icon(
-                          _controller.value.isPlaying
+                          _controller!.value.isPlaying
                               ? Icons.pause_rounded
                               : Icons.play_arrow_rounded,
                           color: Colors.white,
                         ),
                         onPressed: () {
                           setState(() {
-                            if (_controller.value.isPlaying) {
-                              _controller.pause();
+                            if (_controller!.value.isPlaying) {
+                              _controller!.pause();
                             } else {
-                              _controller.play();
+                              _controller!.play();
                             }
                           });
                         },
@@ -212,7 +252,7 @@ class _VideoPreviewWidgetState extends State<VideoPreviewWidget> {
                       ),
                       Expanded(
                         child: VideoProgressIndicator(
-                          _controller,
+                          _controller!,
                           allowScrubbing: true,
                           colors: const VideoProgressColors(
                             playedColor: Colors.purpleAccent,
@@ -234,6 +274,83 @@ class _VideoPreviewWidgetState extends State<VideoPreviewWidget> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildLargeFilePlaceholder() {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            const Color(0xFF1A0A2E).withOpacity(0.9),
+            const Color(0xFF0D0D1A).withOpacity(0.9),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFD500F9).withOpacity(0.3)),
+      ),
+      child: Column(
+        children: [
+          Container(
+            width: 60,
+            height: 60,
+            decoration: BoxDecoration(
+              color: const Color(0xFFD500F9).withOpacity(0.15),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.movie_rounded, color: Color(0xFFD500F9), size: 32),
+          ),
+          const SizedBox(height: 16),
+          const Text(
+            'ไฟล์ขนาดใหญ่ — ข้ามการแสดงตัวอย่าง',
+            style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'ขนาดไฟล์: ${_formatBytes(_fileSize)}\n'
+            'ไฟล์ที่มีขนาดเกิน 300MB จะข้ามการแสดงตัวอย่างเพื่อป้องกัน\n'
+            'แอปปิดกะทันหันบน iOS (Memory Limit)\n'
+            'คุณสามารถบีบอัด บันทึก หรือแชร์ไฟล์ได้ตามปกติ',
+            style: const TextStyle(color: Colors.white54, fontSize: 12, height: 1.6),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildErrorPlaceholder() {
+    return Container(
+      height: 180,
+      decoration: BoxDecoration(
+        color: Colors.orange.withAlpha(20),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.orange.withAlpha(60)),
+      ),
+      child: const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.videocam_off_rounded, color: Colors.orangeAccent, size: 36),
+            SizedBox(height: 8),
+            Text(
+              'ไม่สามารถแสดงตัวอย่างวิดีโอนี้ได้',
+              style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
+            ),
+            SizedBox(height: 4),
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: 20),
+              child: Text(
+                'สามารถกดบันทึกหรือแชร์ไฟล์ได้ตามปกติ',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.white60, fontSize: 12),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
