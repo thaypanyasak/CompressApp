@@ -10,6 +10,49 @@ class CompressService {
   /// Stream to listen for real-time video compression progress
   static Stream<double> get videoProgressStream => _videoCompressor.onProgressUpdated;
 
+  /// On iOS, FilePicker returns a sandboxed temp URL from the Photos framework
+  /// that can be revoked by the OS once the app starts heavy memory usage.
+  /// This method copies the file to the app's own Documents directory to ensure
+  /// persistent read access throughout the entire compression process.
+  ///
+  /// Returns the local [File] — either the original (if already in sandbox)
+  /// or a newly copied one.
+  static Future<File> ensureLocalVideoPath(String sourcePath) async {
+    final srcFile = File(sourcePath);
+
+    if (!Platform.isIOS) return srcFile;
+
+    // Check if already inside the app's own sandbox
+    final docsDir = await getApplicationDocumentsDirectory();
+    final tempDir = await getTemporaryDirectory();
+
+    if (sourcePath.startsWith(docsDir.path) ||
+        sourcePath.startsWith(tempDir.path)) {
+      debugPrint('CompressService: Path already in sandbox, skipping copy');
+      return srcFile;
+    }
+
+    // Copy to Documents so iOS does not revoke access during AVAssetExportSession
+    final ext = sourcePath.contains('.') ? sourcePath.split('.').last : 'mp4';
+    final destPath =
+        '${docsDir.path}/input_${DateTime.now().millisecondsSinceEpoch}.$ext';
+
+    debugPrint('CompressService: Copying video to sandbox: $destPath');
+    final copiedFile = await srcFile.copy(destPath);
+    debugPrint(
+        'CompressService: Copy done — size: ${await copiedFile.length()} bytes');
+    return copiedFile;
+  }
+
+  /// Delete a temporary input copy created by [ensureLocalVideoPath].
+  static Future<void> cleanupLocalCopy(File localFile, String originalPath) async {
+    if (!Platform.isIOS) return;
+    if (localFile.path == originalPath) return; // same file, don't delete
+    try {
+      if (await localFile.exists()) await localFile.delete();
+    } catch (_) {}
+  }
+
   /// Compress image offline with configurable quality (1-100)
   /// Returns the compressed [File], or null if compression was failed/canceled.
   static Future<File?> compressImage({
@@ -22,7 +65,8 @@ class CompressService {
     try {
       final tempDir = await getTemporaryDirectory();
       final extension = _getExtensionForFormat(format);
-      final targetPath = '${tempDir.path}/img_${DateTime.now().millisecondsSinceEpoch}.$extension';
+      final targetPath =
+          '${tempDir.path}/img_${DateTime.now().millisecondsSinceEpoch}.$extension';
 
       final XFile? compressedXFile = await FlutterImageCompress.compressAndGetFile(
         sourcePath,
@@ -43,23 +87,32 @@ class CompressService {
     }
   }
 
-  /// Compress video offline using hardware acceleration
+  /// Compress video offline using hardware acceleration.
+  ///
+  /// On iOS, the source is first copied to the app's Documents directory to
+  /// prevent the OS from revoking sandbox access mid-compression.
+  ///
   /// Returns the compressed [File], or null if canceled.
   static Future<File?> compressVideo({
     required String sourcePath,
     required VideoQuality quality,
     bool isMinBitrateCheckEnabled = false,
   }) async {
+    File? localCopy;
     try {
+      // Step 1: Ensure we have a stable, app-owned path (critical on iOS)
+      localCopy = await ensureLocalVideoPath(sourcePath);
+
       final String videoName = 'vid_${DateTime.now().millisecondsSinceEpoch}';
 
       final Result result = await _videoCompressor.compressVideo(
-        path: sourcePath,
+        path: localCopy.path,
         videoQuality: quality,
         isMinBitrateCheckEnabled: isMinBitrateCheckEnabled,
         video: Video(videoName: videoName),
-        android: AndroidConfig(isSharedStorage: false), // internal cache so we can preview first
-        ios: IOSConfig(saveInGallery: false), // internal cache so we can preview first
+        android: AndroidConfig(isSharedStorage: false),
+        ios: IOSConfig(saveInGallery: false),
+        debugLogging: kDebugMode,
       );
 
       if (result is OnSuccess) {
@@ -73,6 +126,11 @@ class CompressService {
     } catch (e) {
       debugPrint('Error compressing video: $e');
       rethrow;
+    } finally {
+      // Clean up the temporary local copy (not the output file)
+      if (localCopy != null) {
+        await cleanupLocalCopy(localCopy, sourcePath);
+      }
     }
   }
 
@@ -97,7 +155,8 @@ class CompressService {
   /// Get percentage reduction
   static double getReductionPercentage(int originalSize, int compressedSize) {
     if (originalSize <= 0) return 0.0;
-    final reduction = ((originalSize - compressedSize) / originalSize) * 100;
+    final reduction =
+        ((originalSize - compressedSize) / originalSize) * 100;
     return reduction < 0 ? 0.0 : reduction;
   }
 

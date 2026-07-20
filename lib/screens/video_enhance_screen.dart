@@ -20,6 +20,8 @@ class _VideoEnhanceScreenState extends State<VideoEnhanceScreen> {
   File? _enhancedVideo;
   double _progress = 0.0;
   bool _isEnhancing = false;
+  bool _isPickingFile = false;
+  bool _isCopyingToSandbox = false; // iOS: copying file to app sandbox
   int _timeTakenMs = 0;
   String _enhanceResolution = '4K (Ultra HD)';
   double _videoSharpness = 2.0;
@@ -27,23 +29,49 @@ class _VideoEnhanceScreenState extends State<VideoEnhanceScreen> {
   bool _enableDenoise = true;
 
   Future<void> _pickVideo() async {
-    final result = await FilePicker.platform.pickFiles(
-      type: FileType.video,
-      allowMultiple: false,
-    );
-
-    if (result != null && result.files.single.path != null) {
-      setState(() {
-        _originalVideo = File(result.files.single.path!);
-        _enhancedVideo = null;
-        _progress = 0.0;
-        _timeTakenMs = 0;
-      });
+    setState(() => _isPickingFile = true);
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.video,
+        allowMultiple: false,
+      );
+      if (result != null && result.files.single.path != null) {
+        setState(() {
+          _originalVideo = File(result.files.single.path!);
+          _enhancedVideo = null;
+          _progress = 0.0;
+          _timeTakenMs = 0;
+        });
+      }
+    } finally {
+      if (mounted) setState(() => _isPickingFile = false);
     }
   }
 
   Future<void> _enhanceVideo() async {
     if (_originalVideo == null) return;
+
+    // iOS: copy file to app sandbox first to prevent PHAsset URL revocation
+    if (Platform.isIOS) {
+      setState(() => _isCopyingToSandbox = true);
+      try {
+        final localFile = await CompressService.ensureLocalVideoPath(_originalVideo!.path);
+        setState(() {
+          _originalVideo = localFile;
+          _isCopyingToSandbox = false;
+        });
+      } catch (e) {
+        setState(() => _isCopyingToSandbox = false);
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('ไม่สามารถเตรียมไฟล์วิดีโอบน iOS ได้: $e'),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+        return;
+      }
+    }
 
     setState(() {
       _isEnhancing = true;
@@ -161,7 +189,57 @@ class _VideoEnhanceScreenState extends State<VideoEnhanceScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (_originalVideo == null) ...[
+          if (_isPickingFile) ...[
+            GlowingContainer(
+              gradientColors: const [Color(0xFF8E2DE2), Color(0xFFD500F9)],
+              shadowColor: const Color(0xFF8E2DE2),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 20),
+                child: Column(
+                  children: [
+                    const LinearProgressIndicator(
+                      color: Color(0xFFD500F9),
+                      backgroundColor: Colors.white10,
+                      minHeight: 6,
+                    ),
+                    const SizedBox(height: 20),
+                    const Text(
+                      'กำลังโหลดไฟล์วิดีโอ...',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Colors.white),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ] else if (_isCopyingToSandbox) ...[
+            GlowingContainer(
+              gradientColors: const [Color(0xFF00E5FF), Color(0xFF8E2DE2)],
+              shadowColor: const Color(0xFF00E5FF),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 20),
+                child: Column(
+                  children: [
+                    const LinearProgressIndicator(
+                      color: Color(0xFF00E5FF),
+                      backgroundColor: Colors.white10,
+                      minHeight: 6,
+                    ),
+                    const SizedBox(height: 20),
+                    const Text(
+                      'กำลังเตรียมไฟล์วิดีโอสำหรับ iOS...',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Colors.white),
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'กำลังคัดลอกไฟล์ไปยังพื้นที่แอปเพื่อเริ่มประมวลผลได้อย่างมีเสถียรภาพ\nไฟล์ขนาดใหญ่อาจใช้เวลาสักระยะหนึ่ง...',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: Colors.white60, fontSize: 12, height: 1.5),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ] else if (_originalVideo == null) ...[
             GlowPickerArea(
               title: 'เลือกวิดีโอเพื่อเพิ่มความคมชัด',
               subtitle: 'วิเคราะห์โครงสร้างคีย์เฟรมและเพิ่มรายละเอียดความละเอียดสูงสุด',
@@ -243,6 +321,29 @@ class _VideoEnhanceScreenState extends State<VideoEnhanceScreen> {
                     _buildStatRow('ชื่อไฟล์:', _originalVideo!.path.split(Platform.pathSeparator).last),
                     const SizedBox(height: 8),
                     _buildStatRow('ขนาดไฟล์เดิม:', CompressService.formatBytes(originalSize)),
+                    if (Platform.isIOS) ...[
+                      const SizedBox(height: 8),
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: Colors.amber.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.amber.withOpacity(0.3)),
+                        ),
+                        child: const Row(
+                          children: [
+                            Icon(Icons.info_outline, color: Colors.amber, size: 14),
+                            SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                'iOS อาจแสดงขนาดไฟล์ต่างจากต้นฉบับ เนื่องจากการแปลง HEVC→H.264 โดยอัตโนมัติ',
+                                style: TextStyle(color: Colors.amber, fontSize: 11),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -422,29 +523,47 @@ class _VideoEnhanceScreenState extends State<VideoEnhanceScreen> {
               ),
             ),
           ] else if (_isEnhancing) ...[
-            // Progress loader
+            // Progress Card
             GlowingContainer(
               gradientColors: const [Color(0xFFD500F9), Color(0xFF8E2DE2)],
               shadowColor: const Color(0xFFD500F9),
               child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 20),
+                padding: const EdgeInsets.all(24.0),
                 child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    CircularProgressIndicator(
-                      value: _progress > 0 ? _progress / 100 : null,
-                      valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFFD500F9)),
-                      backgroundColor: Colors.white10,
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'กำลังเพิ่มความคมชัดวิดีโอ...',
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Colors.white),
+                        ),
+                        Text(
+                          '${_progress.toStringAsFixed(0)}%',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 20,
+                            color: Colors.cyanAccent,
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 24),
-                    Text(
-                      'กำลังเพิ่มความละเอียดความคมชัด... ${_progress.toStringAsFixed(0)}%',
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white),
+                    const SizedBox(height: 16),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: LinearProgressIndicator(
+                        value: _progress / 100,
+                        color: const Color(0xFFD500F9),
+                        backgroundColor: Colors.white10,
+                        minHeight: 10,
+                      ),
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 12),
                     const Text(
                       'การวิเคราะห์และประมวลผลพิกเซลแบบออฟไลน์\nโปรดอย่าปิดแอปพลิเคชัน',
                       textAlign: TextAlign.center,
-                      style: TextStyle(color: Colors.white60, fontSize: 12, height: 1.5),
+                      style: TextStyle(color: Colors.white54, fontSize: 12, height: 1.5),
                     ),
                   ],
                 ),

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
@@ -26,6 +27,8 @@ class _ImageEnhanceScreenState extends State<ImageEnhanceScreen> {
   bool _enableHdr = true;
   bool _enableDenoise = true;
   bool _isImageEnhancing = false;
+  double _enhanceProgress = 0.0;
+  Timer? _enhanceProgressTimer;
   int _enhanceTimeTakenMs = 0;
   String? _originalResolution;
   String? _enhancedResolution;
@@ -64,12 +67,41 @@ class _ImageEnhanceScreenState extends State<ImageEnhanceScreen> {
     }
   }
 
+  void _startEnhanceProgressSimulation() {
+    _enhanceProgress = 0.0;
+    _enhanceProgressTimer?.cancel();
+    _enhanceProgressTimer = Timer.periodic(const Duration(milliseconds: 200), (timer) {
+      if (!mounted) { timer.cancel(); return; }
+      setState(() {
+        if (_enhanceProgress < 80.0) {
+          _enhanceProgress += (80.0 - _enhanceProgress) * 0.03 + 0.5;
+        } else if (_enhanceProgress < 90.0) {
+          _enhanceProgress += 0.1;
+        }
+        _enhanceProgress = _enhanceProgress.clamp(0.0, 90.0);
+      });
+    });
+  }
+
+  void _finishEnhanceProgress() {
+    _enhanceProgressTimer?.cancel();
+    if (mounted) setState(() => _enhanceProgress = 100.0);
+  }
+
+  @override
+  void dispose() {
+    _enhanceProgressTimer?.cancel();
+    super.dispose();
+  }
+
   Future<void> _enhanceImage() async {
     if (_originalEnhanceImage == null) return;
 
     setState(() {
       _isImageEnhancing = true;
+      _enhanceProgress = 0.0;
     });
+    _startEnhanceProgressSimulation();
 
     final stopwatch = Stopwatch()..start();
 
@@ -89,13 +121,18 @@ class _ImageEnhanceScreenState extends State<ImageEnhanceScreen> {
       final result = await compute(enhanceImageWork, params);
 
       stopwatch.stop();
+      _finishEnhanceProgress();
+      await Future.delayed(const Duration(milliseconds: 300));
 
-      setState(() {
-        _enhancedImage = File(result.path);
-        _enhanceTimeTakenMs = stopwatch.elapsedMilliseconds;
-        _enhancedResolution = '${result.enhancedWidth} x ${result.enhancedHeight}';
-      });
+      if (mounted) {
+        setState(() {
+          _enhancedImage = File(result.path);
+          _enhanceTimeTakenMs = stopwatch.elapsedMilliseconds;
+          _enhancedResolution = '${result.enhancedWidth} x ${result.enhancedHeight}';
+        });
+      }
     } catch (e) {
+      _finishEnhanceProgress();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -104,16 +141,16 @@ class _ImageEnhanceScreenState extends State<ImageEnhanceScreen> {
         ),
       );
     } finally {
-      setState(() {
-        _isImageEnhancing = false;
-      });
+      if (mounted) setState(() => _isImageEnhancing = false);
     }
   }
 
   void _resetEnhanceImage() {
+    _enhanceProgressTimer?.cancel();
     setState(() {
       _originalEnhanceImage = null;
       _enhancedImage = null;
+      _enhanceProgress = 0.0;
       _enhanceTimeTakenMs = 0;
       _originalResolution = null;
       _enhancedResolution = null;
@@ -390,25 +427,42 @@ class _ImageEnhanceScreenState extends State<ImageEnhanceScreen> {
                 shadowColor: const Color(0xFF00E5FF),
                 borderRadius: 24,
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 20),
+                  padding: const EdgeInsets.all(24.0),
                   child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      const LinearProgressIndicator(
-                        color: Color(0xFF00E5FF),
-                        backgroundColor: Colors.white10,
-                        minHeight: 6,
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'กำลังเพิ่มความคมชัด 4K...',
+                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Colors.white),
+                          ),
+                          Text(
+                            '${_enhanceProgress.toStringAsFixed(0)}%',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 20,
+                              color: Colors.cyanAccent,
+                            ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(height: 24),
+                      const SizedBox(height: 16),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: LinearProgressIndicator(
+                          value: _enhanceProgress / 100,
+                          color: const Color(0xFF00E5FF),
+                          backgroundColor: Colors.white10,
+                          minHeight: 10,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
                       const Text(
-                        'กำลังประมวลผลเพิ่มความคมชัดระดับ 4K...',
+                        'ประมวลผลบนเครื่องแบบ Offline 100%\nโปรดอย่าปิดแอปพลิเคชัน',
                         textAlign: TextAlign.center,
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'ขั้นตอนนี้ใช้เวลาประมาณ 5-15 วินาที\nเนื่องจากประมวลผลบนมือถือแบบ Offline 100%',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 12, height: 1.5),
+                        style: TextStyle(color: Colors.white54, fontSize: 12, height: 1.5),
                       ),
                     ],
                   ),

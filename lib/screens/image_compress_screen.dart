@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
@@ -23,6 +24,8 @@ class _ImageCompressScreenState extends State<ImageCompressScreen> {
   CompressFormat _imageFormat = CompressFormat.jpeg;
   String _imageResolutionLimit = 'Original';
   bool _isImageCompressing = false;
+  double _imageProgress = 0.0;
+  Timer? _progressTimer;
   int _imageTimeTakenMs = 0;
 
   Future<void> _pickImage() async {
@@ -40,12 +43,36 @@ class _ImageCompressScreenState extends State<ImageCompressScreen> {
     }
   }
 
+  void _startProgressSimulation() {
+    _imageProgress = 0.0;
+    _progressTimer?.cancel();
+    // Simulate progress: fast to 85%, then hold until done
+    _progressTimer = Timer.periodic(const Duration(milliseconds: 120), (timer) {
+      if (!mounted) { timer.cancel(); return; }
+      setState(() {
+        if (_imageProgress < 85.0) {
+          _imageProgress += (85.0 - _imageProgress) * 0.04 + 0.3;
+        } else if (_imageProgress < 92.0) {
+          _imageProgress += 0.08;
+        }
+        _imageProgress = _imageProgress.clamp(0.0, 92.0);
+      });
+    });
+  }
+
+  void _finishProgress() {
+    _progressTimer?.cancel();
+    if (mounted) setState(() => _imageProgress = 100.0);
+  }
+
   Future<void> _compressImage() async {
     if (_originalImage == null) return;
 
     setState(() {
       _isImageCompressing = true;
+      _imageProgress = 0.0;
     });
+    _startProgressSimulation();
 
     final stopwatch = Stopwatch()..start();
 
@@ -70,14 +97,18 @@ class _ImageCompressScreenState extends State<ImageCompressScreen> {
       );
 
       stopwatch.stop();
+      _finishProgress();
 
-      if (compressed != null) {
+      await Future.delayed(const Duration(milliseconds: 300));
+
+      if (compressed != null && mounted) {
         setState(() {
           _compressedImage = compressed;
           _imageTimeTakenMs = stopwatch.elapsedMilliseconds;
         });
       }
     } catch (e) {
+      _finishProgress();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -86,16 +117,22 @@ class _ImageCompressScreenState extends State<ImageCompressScreen> {
         ),
       );
     } finally {
-      setState(() {
-        _isImageCompressing = false;
-      });
+      if (mounted) setState(() => _isImageCompressing = false);
     }
   }
 
+  @override
+  void dispose() {
+    _progressTimer?.cancel();
+    super.dispose();
+  }
+
   void _resetImage() {
+    _progressTimer?.cancel();
     setState(() {
       _originalImage = null;
       _compressedImage = null;
+      _imageProgress = 0.0;
       _imageTimeTakenMs = 0;
     });
   }
@@ -297,44 +334,86 @@ class _ImageCompressScreenState extends State<ImageCompressScreen> {
               ),
             ),
             const SizedBox(height: 24),
-            
-            ElevatedButton(
-              onPressed: _isImageCompressing ? null : _compressImage,
-              style: ElevatedButton.styleFrom(
-                padding: EdgeInsets.zero,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-                elevation: 8,
-                shadowColor: const Color(0xFF8E2DE2).withOpacity(0.5),
-              ),
-              child: Ink(
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF8E2DE2), Color(0xFF4A00E0)],
-                    begin: Alignment.centerLeft,
-                    end: Alignment.centerRight,
-                  ),
-                  borderRadius: BorderRadius.circular(18),
-                ),
-                child: Container(
-                  height: 56,
-                  alignment: Alignment.center,
-                  child: _isImageCompressing
-                      ? const SizedBox(
-                          height: 24,
-                          width: 24,
-                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-                        )
-                      : const Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.compress, color: Colors.white),
-                            SizedBox(width: 8),
-                            Text('เริ่มบีบอัดรูปภาพ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white)),
-                          ],
+
+            if (_isImageCompressing) ...[
+              GlowingContainer(
+                gradientColors: const [Color(0xFF8E2DE2), Color(0xFF4A00E0)],
+                shadowColor: const Color(0xFF8E2DE2),
+                child: Padding(
+                  padding: const EdgeInsets.all(24.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'กำลังบีบอัดรูปภาพ...',
+                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Colors.white),
+                          ),
+                          Text(
+                            '${_imageProgress.toStringAsFixed(0)}%',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 20,
+                              color: Colors.cyanAccent,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: LinearProgressIndicator(
+                          value: _imageProgress / 100,
+                          color: const Color(0xFF00E5FF),
+                          backgroundColor: Colors.white10,
+                          minHeight: 10,
                         ),
+                      ),
+                      const SizedBox(height: 12),
+                      const Text(
+                        'ประมวลผลบนเครื่องแบบ Offline 100%\nโปรดอย่าปิดแอปพลิเคชัน',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: Colors.white54, fontSize: 12, height: 1.5),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
+            ] else ...[
+              ElevatedButton(
+                onPressed: _compressImage,
+                style: ElevatedButton.styleFrom(
+                  padding: EdgeInsets.zero,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+                  elevation: 8,
+                  shadowColor: const Color(0xFF8E2DE2).withOpacity(0.5),
+                ),
+                child: Ink(
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF8E2DE2), Color(0xFF4A00E0)],
+                      begin: Alignment.centerLeft,
+                      end: Alignment.centerRight,
+                    ),
+                    borderRadius: BorderRadius.circular(18),
+                  ),
+                  child: Container(
+                    height: 56,
+                    alignment: Alignment.center,
+                    child: const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.compress, color: Colors.white),
+                        SizedBox(width: 8),
+                        Text('เริ่มบีบอัดรูปภาพ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white)),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ] else ...[
             // Show compression result
             Column(
