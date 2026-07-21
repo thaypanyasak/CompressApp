@@ -24,6 +24,7 @@ class _VideoCompressScreenState extends State<VideoCompressScreen> {
   bool _isVideoCompressing = false;
   bool _isPickingFile = false;
   bool _isCopyingToSandbox = false; // iOS: copying file to app sandbox
+  double _copyProgress = 0.0; // Track file copy progress (0.0 to 1.0)
   int _videoTimeTakenMs = 0;
 
   Future<void> _pickVideo() async {
@@ -32,6 +33,7 @@ class _VideoCompressScreenState extends State<VideoCompressScreen> {
       final result = await FilePicker.platform.pickFiles(
         type: FileType.video,
         allowMultiple: false,
+        allowCompression: false,
       );
 
       if (result != null && result.files.single.path != null) {
@@ -63,9 +65,19 @@ class _VideoCompressScreenState extends State<VideoCompressScreen> {
 
     // iOS: copy file to app sandbox first to prevent PHAsset URL revocation
     if (Platform.isIOS) {
-      setState(() => _isCopyingToSandbox = true);
+      setState(() {
+        _isCopyingToSandbox = true;
+        _copyProgress = 0.0;
+      });
       try {
-        final localFile = await CompressService.ensureLocalVideoPath(_originalVideo!.path);
+        final localFile = await CompressService.ensureLocalVideoPath(
+          _originalVideo!.path,
+          onProgress: (progress) {
+            setState(() {
+              _copyProgress = progress;
+            });
+          },
+        );
         setState(() {
           _originalVideo = localFile;
           _isCopyingToSandbox = false;
@@ -278,17 +290,34 @@ class _VideoCompressScreenState extends State<VideoCompressScreen> {
                 padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 20),
                 child: Column(
                   children: [
-                    const LinearProgressIndicator(
-                      color: Color(0xFF00E5FF),
-                      backgroundColor: Colors.white10,
-                      minHeight: 6,
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'กำลังเตรียมไฟล์วิดีโอสำหรับ iOS...',
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Colors.white),
+                        ),
+                        Text(
+                          '${(_copyProgress * 100).toStringAsFixed(0)}%',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 18,
+                            color: Colors.cyanAccent,
+                          ),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 20),
-                    const Text(
-                      'กำลังเตรียมไฟล์วิดีโอสำหรับ iOS...',
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Colors.white),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: LinearProgressIndicator(
+                        value: _copyProgress,
+                        color: const Color(0xFF00E5FF),
+                        backgroundColor: Colors.white10,
+                        minHeight: 8,
+                      ),
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 12),
                     const Text(
                       'กำลังคัดลอกไฟล์ไปยังพื้นที่แอปเพื่อเริ่มประมวลผลได้อย่างมีเสถียรภาพ\nไฟล์ขนาดใหญ่อาจใช้เวลาสักระยะหนึ่ง...',
                       textAlign: TextAlign.center,

@@ -37,6 +37,7 @@ class _ImageEnhanceScreenState extends State<ImageEnhanceScreen> {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.image,
       allowMultiple: false,
+      allowCompression: false,
     );
 
     if (result != null && result.files.single.path != null) {

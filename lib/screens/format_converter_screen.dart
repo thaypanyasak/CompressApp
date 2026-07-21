@@ -27,6 +27,7 @@ class _FormatConverterScreenState extends State<FormatConverterScreen> {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.image,
       allowMultiple: true,
+      allowCompression: false,
     );
 
     if (result != null && result.paths.isNotEmpty) {

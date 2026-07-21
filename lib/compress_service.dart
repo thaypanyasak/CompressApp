@@ -17,7 +17,7 @@ class CompressService {
   ///
   /// Returns the local [File] — either the original (if already in sandbox)
   /// or a newly copied one.
-  static Future<File> ensureLocalVideoPath(String sourcePath) async {
+  static Future<File> ensureLocalVideoPath(String sourcePath, {void Function(double)? onProgress}) async {
     final srcFile = File(sourcePath);
 
     if (!Platform.isIOS) return srcFile;
@@ -29,6 +29,7 @@ class CompressService {
     if (sourcePath.startsWith(docsDir.path) ||
         sourcePath.startsWith(tempDir.path)) {
       debugPrint('CompressService: Path already in sandbox, skipping copy');
+      if (onProgress != null) onProgress(1.0);
       return srcFile;
     }
 
@@ -38,10 +39,29 @@ class CompressService {
         '${docsDir.path}/input_${DateTime.now().millisecondsSinceEpoch}.$ext';
 
     debugPrint('CompressService: Copying video to sandbox: $destPath');
-    final copiedFile = await srcFile.copy(destPath);
-    debugPrint(
-        'CompressService: Copy done — size: ${await copiedFile.length()} bytes');
-    return copiedFile;
+    
+    if (onProgress != null) {
+      final input = srcFile.openRead();
+      final output = File(destPath).openWrite();
+      final totalLength = await srcFile.length();
+      int bytesCopied = 0;
+
+      await for (final chunk in input) {
+        output.add(chunk);
+        bytesCopied += chunk.length;
+        if (totalLength > 0) {
+          onProgress(bytesCopied / totalLength);
+        }
+      }
+      await output.close();
+      debugPrint('CompressService: Copy done — size: $bytesCopied bytes');
+      return File(destPath);
+    } else {
+      final copiedFile = await srcFile.copy(destPath);
+      debugPrint(
+          'CompressService: Copy done — size: ${await copiedFile.length()} bytes');
+      return copiedFile;
+    }
   }
 
   /// Delete a temporary input copy created by [ensureLocalVideoPath].
@@ -103,7 +123,7 @@ class CompressService {
       // Step 1: Ensure we have a stable, app-owned path (critical on iOS)
       localCopy = await ensureLocalVideoPath(sourcePath);
 
-      final String videoName = 'vid_${DateTime.now().millisecondsSinceEpoch}';
+      final String videoName = 'vid_${DateTime.now().millisecondsSinceEpoch}.mp4';
 
       final Result result = await _videoCompressor.compressVideo(
         path: localCopy.path,
