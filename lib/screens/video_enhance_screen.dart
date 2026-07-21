@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:light_compressor_v2/light_compressor_v2.dart';
+import 'package:video_compress/video_compress.dart';
 import '../compress_service.dart';
 import '../widgets/glowing_container.dart';
 import '../widgets/glow_picker_area.dart';
@@ -103,7 +103,7 @@ class _VideoEnhanceScreenState extends State<VideoEnhanceScreen> {
       // Use highest video quality for maximum detail retention & resolution
       final enhanced = await CompressService.compressVideo(
         sourcePath: _originalVideo!.path,
-        quality: VideoQuality.high,
+        quality: VideoQuality.HighestQuality,
       );
 
       stopwatch.stop();

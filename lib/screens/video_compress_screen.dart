@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:light_compressor_v2/light_compressor_v2.dart';
+import 'package:video_compress/video_compress.dart';
 import '../compress_service.dart';
 import '../widgets/glowing_container.dart';
 import '../widgets/glow_picker_area.dart';
@@ -19,7 +19,7 @@ class VideoCompressScreen extends StatefulWidget {
 class _VideoCompressScreenState extends State<VideoCompressScreen> {
   File? _originalVideo;
   File? _compressedVideo;
-  VideoQuality _videoQuality = VideoQuality.medium;
+  VideoQuality _videoQuality = VideoQuality.MediumQuality;
   double _videoProgress = 0.0;
   bool _isVideoCompressing = false;
   bool _isPickingFile = false;
@@ -423,13 +423,13 @@ class _VideoCompressScreenState extends State<VideoCompressScreen> {
                         Expanded(
                           child: ChoiceChip(
                             label: const Text('ต่ำ (ไฟล์เล็กสุด)'),
-                            selected: _videoQuality == VideoQuality.low,
+                            selected: _videoQuality == VideoQuality.LowQuality,
                             onSelected: (selected) {
-                              if (selected) setState(() => _videoQuality = VideoQuality.low);
+                              if (selected) setState(() => _videoQuality = VideoQuality.LowQuality);
                             },
                             backgroundColor: Colors.white10,
                             selectedColor: const Color(0xFFD500F9).withOpacity(0.2),
-                            labelStyle: TextStyle(color: _videoQuality == VideoQuality.low ? Colors.purpleAccent : Colors.white60, fontSize: 11),
+                            labelStyle: TextStyle(color: _videoQuality == VideoQuality.LowQuality ? Colors.purpleAccent : Colors.white60, fontSize: 11),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                           ),
                         ),
@@ -437,13 +437,13 @@ class _VideoCompressScreenState extends State<VideoCompressScreen> {
                         Expanded(
                           child: ChoiceChip(
                             label: const Text('กลาง (แนะนำ)'),
-                            selected: _videoQuality == VideoQuality.medium,
+                            selected: _videoQuality == VideoQuality.MediumQuality,
                             onSelected: (selected) {
-                              if (selected) setState(() => _videoQuality = VideoQuality.medium);
+                              if (selected) setState(() => _videoQuality = VideoQuality.MediumQuality);
                             },
                             backgroundColor: Colors.white10,
                             selectedColor: const Color(0xFFD500F9).withOpacity(0.2),
-                            labelStyle: TextStyle(color: _videoQuality == VideoQuality.medium ? Colors.purpleAccent : Colors.white60, fontSize: 11),
+                            labelStyle: TextStyle(color: _videoQuality == VideoQuality.MediumQuality ? Colors.purpleAccent : Colors.white60, fontSize: 11),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                           ),
                         ),
@@ -451,13 +451,13 @@ class _VideoCompressScreenState extends State<VideoCompressScreen> {
                         Expanded(
                           child: ChoiceChip(
                             label: const Text('สูง (ชัดสุด)'),
-                            selected: _videoQuality == VideoQuality.high,
+                            selected: _videoQuality == VideoQuality.HighestQuality,
                             onSelected: (selected) {
-                              if (selected) setState(() => _videoQuality = VideoQuality.high);
+                              if (selected) setState(() => _videoQuality = VideoQuality.HighestQuality);
                             },
                             backgroundColor: Colors.white10,
                             selectedColor: const Color(0xFFD500F9).withOpacity(0.2),
-                            labelStyle: TextStyle(color: _videoQuality == VideoQuality.high ? Colors.purpleAccent : Colors.white60, fontSize: 11),
+                            labelStyle: TextStyle(color: _videoQuality == VideoQuality.HighestQuality ? Colors.purpleAccent : Colors.white60, fontSize: 11),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                           ),
                         ),

@@ -1,14 +1,22 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
-import 'package:light_compressor_v2/light_compressor_v2.dart';
+import 'package:video_compress/video_compress.dart';
 import 'package:path_provider/path_provider.dart';
 
 class CompressService {
-  static final LightCompressor _videoCompressor = LightCompressor();
+  static final StreamController<double> _progressController = StreamController<double>.broadcast();
 
   /// Stream to listen for real-time video compression progress
-  static Stream<double> get videoProgressStream => _videoCompressor.onProgressUpdated;
+  static Stream<double> get videoProgressStream {
+    VideoCompress.compressProgress$.subscribe((progress) {
+      if (!_progressController.isClosed) {
+        _progressController.add(progress);
+      }
+    });
+    return _progressController.stream;
+  }
 
   /// On iOS, FilePicker returns a sandboxed temp URL from the Photos framework
   /// that can be revoked by the OS once the app starts heavy memory usage.
@@ -123,24 +131,15 @@ class CompressService {
       // Step 1: Ensure we have a stable, app-owned path (critical on iOS)
       localCopy = await ensureLocalVideoPath(sourcePath);
 
-      final String videoName = 'vid_${DateTime.now().millisecondsSinceEpoch}.mp4';
-
-      final Result result = await _videoCompressor.compressVideo(
-        path: localCopy.path,
-        videoQuality: quality,
-        isMinBitrateCheckEnabled: isMinBitrateCheckEnabled,
-        video: Video(videoName: videoName),
-        android: AndroidConfig(isSharedStorage: false),
-        ios: IOSConfig(saveInGallery: false),
-        debugLogging: kDebugMode,
+      final MediaInfo? mediaInfo = await VideoCompress.compressVideo(
+        localCopy.path,
+        quality: quality,
+        deleteOrigin: false,
+        includeAudio: true,
       );
 
-      if (result is OnSuccess) {
-        return File(result.destinationPath);
-      } else if (result is OnFailure) {
-        throw Exception(result.message);
-      } else if (result is OnCancelled) {
-        return null;
+      if (mediaInfo != null && mediaInfo.path != null) {
+        return File(mediaInfo.path!);
       }
       return null;
     } catch (e) {
@@ -156,7 +155,7 @@ class CompressService {
 
   /// Cancel current active video compression
   static Future<void> cancelVideoCompression() async {
-    await _videoCompressor.cancelCompression();
+    await VideoCompress.cancelCompression();
   }
 
   /// Format file size into a human-readable string (B, KB, MB, GB)
