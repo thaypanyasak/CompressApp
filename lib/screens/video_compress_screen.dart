@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:video_compress/video_compress.dart';
@@ -73,6 +75,9 @@ class _VideoCompressScreenState extends State<VideoCompressScreen> {
   Future<void> _compressAll() async {
     if (_selectedVideos.isEmpty) return;
 
+    // Reset VideoCompress ONCE before the batch — not between each video
+    await CompressService.resetVideoCompress();
+
     setState(() {
       _isCompressing = true;
       _results = [];
@@ -114,8 +119,22 @@ class _VideoCompressScreenState extends State<VideoCompressScreen> {
         }
       }
 
-      // Listen progress
+      // Fallback timer: animate progress 0→70% while waiting for native events.
+      // Real VideoCompress events (when they arrive) will override this.
+      Timer? fallbackTimer;
+      fallbackTimer = Timer.periodic(const Duration(milliseconds: 250), (t) {
+        if (!mounted) { t.cancel(); return; }
+        setState(() {
+          if (_currentFileProgress < 70.0) {
+            _currentFileProgress += (70.0 - _currentFileProgress) * 0.035 + 0.6;
+            _currentFileProgress = _currentFileProgress.clamp(0.0, 70.0);
+          }
+        });
+      });
+
+      // Real progress stream — cancels fallback when events arrive
       final sub = CompressService.videoProgressStream.listen((p) {
+        fallbackTimer?.cancel();
         if (mounted) setState(() => _currentFileProgress = p);
       });
 
@@ -125,7 +144,12 @@ class _VideoCompressScreenState extends State<VideoCompressScreen> {
           quality: _videoQuality,
         );
 
+        fallbackTimer.cancel();
         sub.cancel();
+
+        // Show 100% briefly before moving to next file
+        if (mounted) setState(() => _currentFileProgress = 100.0);
+        await Future.delayed(const Duration(milliseconds: 400));
 
         if (compressed != null && mounted) {
           setState(() {
@@ -133,6 +157,7 @@ class _VideoCompressScreenState extends State<VideoCompressScreen> {
           });
         }
       } catch (e) {
+        fallbackTimer.cancel();
         sub.cancel();
         if (!mounted) break;
         ScaffoldMessenger.of(context).showSnackBar(
@@ -153,6 +178,7 @@ class _VideoCompressScreenState extends State<VideoCompressScreen> {
     }
   }
 
+
   Future<void> _cancelCompression() async {
     await CompressService.cancelVideoCompression();
   }
@@ -170,6 +196,53 @@ class _VideoCompressScreenState extends State<VideoCompressScreen> {
     setState(() {
       _selectedVideos.removeAt(index);
     });
+  }
+
+  Widget _buildQualityCard({
+    required String title,
+    required String sub,
+    required String detail,
+    required VideoQuality quality,
+    required IconData icon,
+    required Color color,
+  }) {
+    final isSelected = _videoQuality == quality;
+    return GestureDetector(
+      onTap: () => setState(() => _videoQuality = quality),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+        decoration: BoxDecoration(
+          color: isSelected ? color.withOpacity(0.12) : Colors.white.withOpacity(0.03),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: isSelected ? color : Colors.white.withOpacity(0.08),
+            width: isSelected ? 1.5 : 1.0,
+          ),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, color: isSelected ? color : Colors.white38, size: 22),
+            const SizedBox(height: 6),
+            Text(title,
+              style: TextStyle(color: isSelected ? Colors.white : Colors.white60, fontWeight: FontWeight.bold, fontSize: 12),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 3),
+            Text(sub,
+              style: TextStyle(color: isSelected ? color : Colors.white38, fontSize: 9, fontWeight: FontWeight.w600),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 2),
+            Text(detail,
+              style: const TextStyle(color: Colors.white30, fontSize: 9),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _buildStatRow(String label, String value, {bool highlight = false}) {
@@ -377,51 +450,79 @@ class _VideoCompressScreenState extends State<VideoCompressScreen> {
                   ],
                 ),
                 const SizedBox(height: 20),
-                const Text('คุณภาพวิดีโอปลายทาง:', style: TextStyle(color: Colors.white70)),
+                const Text('คุณภาพวิดีโอปลายทาง:', style: TextStyle(color: Colors.white70, fontWeight: FontWeight.w600)),
                 const SizedBox(height: 12),
                 Row(
                   children: [
                     Expanded(
-                      child: ChoiceChip(
-                        label: const Text('ต่ำ (ไฟล์เล็กสุด)'),
-                        selected: _videoQuality == VideoQuality.LowQuality,
-                        onSelected: (s) { if (s) setState(() => _videoQuality = VideoQuality.LowQuality); },
-                        backgroundColor: Colors.white10,
-                        selectedColor: const Color(0xFFD500F9).withOpacity(0.2),
-                        labelStyle: TextStyle(color: _videoQuality == VideoQuality.LowQuality ? Colors.purpleAccent : Colors.white60, fontSize: 11),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      child: _buildQualityCard(
+                        title: 'ประหยัด',
+                        sub: 'ลดขนาด 70–85%',
+                        detail: '360p',
+                        quality: VideoQuality.LowQuality,
+                        icon: Icons.compress,
+                        color: Colors.orangeAccent,
                       ),
                     ),
                     const SizedBox(width: 8),
                     Expanded(
-                      child: ChoiceChip(
-                        label: const Text('กลาง (แนะนำ)'),
-                        selected: _videoQuality == VideoQuality.MediumQuality,
-                        onSelected: (s) { if (s) setState(() => _videoQuality = VideoQuality.MediumQuality); },
-                        backgroundColor: Colors.white10,
-                        selectedColor: const Color(0xFFD500F9).withOpacity(0.2),
-                        labelStyle: TextStyle(color: _videoQuality == VideoQuality.MediumQuality ? Colors.purpleAccent : Colors.white60, fontSize: 11),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      child: _buildQualityCard(
+                        title: 'สมดุล',
+                        sub: 'ลดขนาด 50–70%',
+                        detail: '480p ✦ แนะนำ',
+                        quality: VideoQuality.MediumQuality,
+                        icon: Icons.balance,
+                        color: Colors.purpleAccent,
                       ),
                     ),
                     const SizedBox(width: 8),
                     Expanded(
-                      child: ChoiceChip(
-                        label: const Text('สูง (ชัดสุด)'),
-                        selected: _videoQuality == VideoQuality.HighestQuality,
-                        onSelected: (s) { if (s) setState(() => _videoQuality = VideoQuality.HighestQuality); },
-                        backgroundColor: Colors.white10,
-                        selectedColor: const Color(0xFFD500F9).withOpacity(0.2),
-                        labelStyle: TextStyle(color: _videoQuality == VideoQuality.HighestQuality ? Colors.purpleAccent : Colors.white60, fontSize: 11),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      child: _buildQualityCard(
+                        title: 'คมชัด',
+                        sub: 'ลดขนาด 20–40%',
+                        detail: '1080p',
+                        quality: VideoQuality.HighestQuality,
+                        icon: Icons.hd_rounded,
+                        color: const Color(0xFF00E5FF),
                       ),
                     ),
                   ],
+                ),
+                const SizedBox(height: 16),
+                // Info tip
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.04),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.white.withOpacity(0.08)),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Icon(Icons.lightbulb_outline_rounded, color: Colors.cyanAccent, size: 16),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: RichText(
+                          text: const TextSpan(
+                            style: TextStyle(color: Colors.white54, fontSize: 11, height: 1.5),
+                            children: [
+                              TextSpan(text: 'เคล็ดลับ: ', style: TextStyle(color: Colors.cyanAccent, fontWeight: FontWeight.bold)),
+                              TextSpan(text: 'ทุกโหมดใช้ '),
+                              TextSpan(text: '30 fps ', style: TextStyle(color: Colors.white70, fontWeight: FontWeight.bold)),
+                              TextSpan(text: 'ซึ่งลดขนาดได้ 40–50% สำหรับวิดีโอ 60fps โดยไม่สูญเสียความคมชัดที่มองเห็นได้'),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
           ),
         ),
+
         const SizedBox(height: 24),
 
         ElevatedButton(

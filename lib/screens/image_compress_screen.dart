@@ -183,18 +183,15 @@ class _ImageCompressScreenState extends State<ImageCompressScreen> {
 
   // ─── PHASE: Empty picker ─────────────────────────────────────────────────
   Widget _buildEmptyState() {
-    return Column(
-      children: [
-        GlowPickerArea(
-          title: 'เลือกรูปภาพเพื่อบีบอัด',
-          subtitle: 'รองรับหลายภาพพร้อมกัน — แตะเพื่อเลือก',
-          icon: Icons.add_photo_alternate_rounded,
-          onTap: _pickImages,
-          gradientColors: const [Color(0xFFE040FB), Color(0xFF00E5FF)],
-        ),
-      ],
+    return GlowPickerArea(
+      title: 'เลือกรูปภาพเพื่อบีบอัด',
+      subtitle: 'รองรับหลายภาพพร้อมกัน — แตะเพื่อเลือก',
+      icon: Icons.add_photo_alternate_rounded,
+      onTap: _pickImages,
+      gradientColors: const [Color(0xFFE040FB), Color(0xFF00E5FF)],
     );
   }
+
 
   // ─── PHASE: File List (before compress) ──────────────────────────────────
   Widget _buildFileListState() {

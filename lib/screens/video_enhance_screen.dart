@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
@@ -67,6 +68,9 @@ class _VideoEnhanceScreenState extends State<VideoEnhanceScreen> {
   Future<void> _enhanceAll() async {
     if (_selectedVideos.isEmpty) return;
 
+    // Reset VideoCompress ONCE before the batch — not between each video
+    await CompressService.resetVideoCompress();
+
     setState(() {
       _isEnhancing = true;
       _results = [];
@@ -105,7 +109,20 @@ class _VideoEnhanceScreenState extends State<VideoEnhanceScreen> {
         }
       }
 
+      // Fallback timer: animate 0→70% while waiting for native progress events
+      Timer? fallbackTimer;
+      fallbackTimer = Timer.periodic(const Duration(milliseconds: 250), (t) {
+        if (!mounted) { t.cancel(); return; }
+        setState(() {
+          if (_currentFileProgress < 70.0) {
+            _currentFileProgress += (70.0 - _currentFileProgress) * 0.035 + 0.6;
+            _currentFileProgress = _currentFileProgress.clamp(0.0, 70.0);
+          }
+        });
+      });
+
       final sub = CompressService.videoProgressStream.listen((p) {
+        fallbackTimer?.cancel();
         if (mounted) setState(() => _currentFileProgress = p);
       });
 
@@ -115,12 +132,18 @@ class _VideoEnhanceScreenState extends State<VideoEnhanceScreen> {
           quality: VideoQuality.HighestQuality,
         );
 
+        fallbackTimer.cancel();
         sub.cancel();
+
+        // Show 100% briefly before moving to next file
+        if (mounted) setState(() => _currentFileProgress = 100.0);
+        await Future.delayed(const Duration(milliseconds: 400));
 
         if (enhanced != null && mounted) {
           setState(() => _results.add(_EnhanceResult(original: srcFile, enhanced: enhanced)));
         }
       } catch (e) {
+        fallbackTimer.cancel();
         sub.cancel();
         if (!mounted) break;
         ScaffoldMessenger.of(context).showSnackBar(
