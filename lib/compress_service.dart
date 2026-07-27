@@ -18,6 +18,63 @@ class CompressService {
     return _progressController.stream;
   }
 
+  /// Reset VideoCompress internal state. MUST be called before each new
+  /// compression to avoid the "won't run after first use" bug caused by
+  /// the library's singleton retaining stale session state.
+  static Future<void> resetVideoCompress() async {
+    try {
+      await VideoCompress.cancelCompression();
+      await VideoCompress.deleteAllCache();
+    } catch (_) {}
+  }
+
+  /// Calculate total size of all cached files (temp dir + app documents)
+  static Future<int> getCacheSize() async {
+    int total = 0;
+    try {
+      final tempDir = await getTemporaryDirectory();
+      total += await _dirSize(tempDir);
+    } catch (_) {}
+    try {
+      final docsDir = await getApplicationDocumentsDirectory();
+      total += await _dirSize(docsDir);
+    } catch (_) {}
+    return total;
+  }
+
+  static Future<int> _dirSize(Directory dir) async {
+    int size = 0;
+    if (!await dir.exists()) return 0;
+    await for (final entity in dir.list(recursive: true, followLinks: false)) {
+      if (entity is File) {
+        try { size += await entity.length(); } catch (_) {}
+      }
+    }
+    return size;
+  }
+
+  /// Delete all cached files in temp and documents directories
+  static Future<void> clearAllCache() async {
+    try {
+      await resetVideoCompress();
+    } catch (_) {}
+    await _clearDir(await getTemporaryDirectory());
+    await _clearDir(await getApplicationDocumentsDirectory());
+  }
+
+  static Future<void> _clearDir(Directory dir) async {
+    if (!await dir.exists()) return;
+    await for (final entity in dir.list(recursive: false)) {
+      try {
+        if (entity is File) {
+          await entity.delete();
+        } else if (entity is Directory) {
+          await entity.delete(recursive: true);
+        }
+      } catch (_) {}
+    }
+  }
+
   /// On iOS, FilePicker returns a sandboxed temp URL from the Photos framework
   /// that can be revoked by the OS once the app starts heavy memory usage.
   /// This method copies the file to the app's own Documents directory to ensure
@@ -128,6 +185,9 @@ class CompressService {
   }) async {
     File? localCopy;
     try {
+      // Step 0: Reset VideoCompress singleton state to allow re-use
+      await resetVideoCompress();
+
       // Step 1: Ensure we have a stable, app-owned path (critical on iOS)
       localCopy = await ensureLocalVideoPath(sourcePath);
 
@@ -152,6 +212,7 @@ class CompressService {
       }
     }
   }
+
 
   /// Cancel current active video compression
   static Future<void> cancelVideoCompression() async {

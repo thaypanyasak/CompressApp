@@ -2,6 +2,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'screens/image_tab_screen.dart';
 import 'screens/video_tab_screen.dart';
+import 'screens/settings_screen.dart';
 
 void main() {
   runApp(const CompressApp());
@@ -54,13 +55,19 @@ class _HomeScreenState extends State<HomeScreen> {
   final List<Widget> _screens = const [
     ImageTabScreen(),
     VideoTabScreen(),
+    SettingsScreen(),
   ];
 
   Widget _buildBottomNavItem(int index, IconData icon, String label) {
     final isSelected = _currentIndex == index;
-    final activeColor = index == 0
-        ? const Color(0xFF00E5FF)
-        : const Color(0xFF8E2DE2);
+    final Color activeColor;
+    if (index == 0) {
+      activeColor = const Color(0xFF00E5FF);
+    } else if (index == 1) {
+      activeColor = const Color(0xFF8E2DE2);
+    } else {
+      activeColor = const Color(0xFFD500F9);
+    }
 
     return Expanded(
       child: InkWell(
@@ -77,7 +84,7 @@ class _HomeScreenState extends State<HomeScreen> {
             AnimatedContainer(
               duration: const Duration(milliseconds: 200),
               curve: Curves.easeInOut,
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
               decoration: BoxDecoration(
                 color: isSelected ? activeColor.withOpacity(0.08) : Colors.transparent,
                 borderRadius: BorderRadius.circular(16),
@@ -145,6 +152,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   children: [
                     _buildBottomNavItem(0, Icons.image_outlined, 'รูปภาพ'),
                     _buildBottomNavItem(1, Icons.video_library_outlined, 'วิดีโอ'),
+                    _buildBottomNavItem(2, Icons.settings_outlined, 'ตั้งค่า'),
                   ],
                 ),
               ),
