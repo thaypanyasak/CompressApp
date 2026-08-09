@@ -1,37 +1,20 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
-import 'package:video_compress/video_compress.dart';
+import 'package:light_compressor_v2/light_compressor_v2.dart';
 import 'package:path_provider/path_provider.dart';
 
 class CompressService {
-  static final StreamController<double> _progressController = StreamController<double>.broadcast();
-  // Guard to ensure we only subscribe to VideoCompress.compressProgress$ once.
-  static bool _progressSubscribed = false;
+  static final LightCompressor _videoCompressor = LightCompressor();
 
-  /// Stream that forwards VideoCompress native progress events (0–100).
-  /// Uses a single persistent subscription to avoid duplicate/zombie listeners
-  /// when called multiple times during batch processing.
-  static Stream<double> get videoProgressStream {
-    if (!_progressSubscribed) {
-      VideoCompress.compressProgress$.subscribe((progress) {
-        if (!_progressController.isClosed) {
-          _progressController.add(progress);
-        }
-      });
-      _progressSubscribed = true;
-    }
-    return _progressController.stream;
-  }
+  /// Stream to listen to real-time video compression progress
+  static Stream<double> get videoProgressStream => _videoCompressor.onProgressUpdated;
 
-  /// Reset VideoCompress internal state.
-  /// Call this ONCE before starting a new compression session (not between
-  /// each video in a batch) to avoid cancelling an ongoing compression.
+  /// Reset or cancel current video compression
   static Future<void> resetVideoCompress() async {
     try {
-      await VideoCompress.cancelCompression();
+      await _videoCompressor.cancelCompression();
     } catch (_) {}
   }
 
@@ -86,9 +69,6 @@ class CompressService {
   /// that can be revoked by the OS once the app starts heavy memory usage.
   /// This method copies the file to the app's own Documents directory to ensure
   /// persistent read access throughout the entire compression process.
-  ///
-  /// Returns the local [File] — either the original (if already in sandbox)
-  /// or a newly copied one.
   static Future<File> ensureLocalVideoPath(String sourcePath, {void Function(double)? onProgress}) async {
     final srcFile = File(sourcePath);
 
@@ -105,7 +85,6 @@ class CompressService {
       return srcFile;
     }
 
-    // Copy to Documents so iOS does not revoke access during AVAssetExportSession
     final ext = sourcePath.contains('.') ? sourcePath.split('.').last : 'mp4';
     final destPath =
         '${docsDir.path}/input_${DateTime.now().millisecondsSinceEpoch}.$ext';
@@ -147,7 +126,6 @@ class CompressService {
 
   /// Compress image offline with configurable quality (1-100).
   /// [minWidth]/[minHeight]: null = preserve original dimensions.
-  /// Returns the compressed [File], or null if compression failed/canceled.
   static Future<File?> compressImage({
     required String sourcePath,
     required int quality,
@@ -165,8 +143,6 @@ class CompressService {
         sourcePath,
         targetPath,
         quality: quality,
-        // If null, FlutterImageCompress keeps the original dimensions.
-        // Do NOT fallback to 1920×1080 — that would upscale smaller images.
         minWidth: minWidth ?? 0,
         minHeight: minHeight ?? 0,
         format: format,
@@ -182,128 +158,60 @@ class CompressService {
     }
   }
 
-
-  /// Selects the actual [VideoQuality] preset to pass to VideoCompress.
-  ///
-  /// The video_compress library uses ABSOLUTE resolution presets (e.g. 240p,
-  /// 480p, 1080p). If the source is already 480p and you request MediumQuality
-  /// (480p), the output is the same size. If you request HighestQuality (1080p)
-  /// on a 480p source, it UPSCALES → file becomes LARGER.
-  ///
-  /// This method analyses [sourceWidth] × [sourceHeight] and always returns a
-  /// preset whose resolution is strictly LOWER than the source, guaranteeing
-  /// real file-size reduction no matter which tier the user picks.
-  static VideoQuality _selectQuality(
-    VideoQuality userChoice,
-    int sourceWidth,
-    int sourceHeight,
-  ) {
-
-    // Use the longer dimension to classify source resolution tier
-    final srcLong = max(sourceWidth, sourceHeight);
-
-    switch (userChoice) {
-      // ────────────────────────────────────────────────────────────────────────
-      // LOW → Max compression (~70–85% size reduction)
-      // Always drops resolution drastically below source.
-      // Trade-off: lower sharpness, smallest file.
-      // ────────────────────────────────────────────────────────────────────────
-      case VideoQuality.LowQuality:
-        // All tiers: target is 240p (LowQuality preset) regardless of source.
-        // Even for tiny sources this still re-encodes at lower bitrate → smaller.
-        return VideoQuality.LowQuality; // → 240p
-
-      // ────────────────────────────────────────────────────────────────────────
-      // MEDIUM → Balanced (~50–70% size reduction)
-      // Drops resolution to roughly half of source.
-      // Trade-off: moderate sharpness loss, good file-size reduction.
-      // ────────────────────────────────────────────────────────────────────────
-      case VideoQuality.MediumQuality:
-        if (srcLong > 1920) return VideoQuality.Res640x480Quality;   // 4K/2K  → 480p
-        if (srcLong > 1280) return VideoQuality.Res640x480Quality;   // 1440p  → 480p
-        if (srcLong > 960)  return VideoQuality.Res640x480Quality;   // 1080p  → 480p
-        if (srcLong > 720)  return VideoQuality.LowQuality;          // 960p   → 240p
-        if (srcLong > 480)  return VideoQuality.LowQuality;          // 720p   → 240p
-        return VideoQuality.LowQuality;                               // ≤480p  → 240p
-
-      // ────────────────────────────────────────────────────────────────────────
-      // HIGH → Light compression (~20–40% size reduction)
-      // Drops only 1 resolution step below source → preserves most sharpness.
-      // Trade-off: minimal sharpness loss, moderate file-size reduction.
-      // ────────────────────────────────────────────────────────────────────────
-      case VideoQuality.HighestQuality:
-        if (srcLong > 3840) return VideoQuality.Res1920x1080Quality; // 4K+   → 1080p
-        if (srcLong > 1920) return VideoQuality.Res1280x720Quality;  // 4K    → 720p
-        if (srcLong > 1280) return VideoQuality.Res960x540Quality;   // 1080p → 540p
-        if (srcLong > 960)  return VideoQuality.Res640x480Quality;   // 1080p → 480p
-        if (srcLong > 720)  return VideoQuality.Res640x480Quality;   // 960p  → 480p
-        if (srcLong > 480)  return VideoQuality.LowQuality;          // 720p  → 240p
-        return VideoQuality.LowQuality;                               // ≤480p → 240p
-
-      default:
-        return VideoQuality.MediumQuality;
-    }
-  }
-
-
   /// Compress video offline using hardware acceleration.
-  ///
-  /// [sourcePath] must already be a stable, app-accessible path.
-  /// On iOS, callers are responsible for copying to sandbox first via
-  /// [ensureLocalVideoPath] (the batch loops in the screens do this).
-  ///
-  /// Internally calls [_selectQuality] to pick a VideoQuality preset that is
-  /// always LOWER resolution than the source — guaranteeing file size reduction.
+  /// Uses light_compressor_v2 for efficient relative-bitrate reduction.
   static Future<File?> compressVideo({
     required String sourcePath,
     required VideoQuality quality,
   }) async {
+    File? localCopy;
     try {
-      // Ensure progress stream subscription is active
-      videoProgressStream;
+      // Ensure we have a stable, app-owned path (critical on iOS)
+      localCopy = await ensureLocalVideoPath(sourcePath);
 
-      // ── Step 1: read source resolution ───────────────────────────────────
-      MediaInfo? srcInfo;
-      try {
-        srcInfo = await VideoCompress.getMediaInfo(sourcePath);
-      } catch (_) {
-        // If metadata read fails, fall back to safe defaults (1920x1080)
-      }
+      final String videoName = 'vid_${DateTime.now().millisecondsSinceEpoch}.mp4';
 
-      final srcW = srcInfo?.width  ?? 1920;
-      final srcH = srcInfo?.height ?? 1080;
+      final inputSize = localCopy.lengthSync();
+      debugPrint('CompressService: STARTING light_compressor on ${localCopy.path} (size: $inputSize bytes) with quality: $quality');
 
-      // ── Step 2: pick a preset guaranteed < source resolution ──────────────
-      final targetQuality = _selectQuality(quality, srcW, srcH);
-
-      debugPrint(
-        'CompressService: source ${srcW}x${srcH} | '
-        'user=$quality → actual=$targetQuality',
+      final Result result = await _videoCompressor.compressVideo(
+        path: localCopy.path,
+        videoQuality: quality,
+        isMinBitrateCheckEnabled: false, // Force compression even if source is low-bitrate
+        video: Video(videoName: videoName),
+        android: AndroidConfig(isSharedStorage: false),
+        ios: IOSConfig(saveInGallery: false),
+        audio: const AudioConfig(bitrate: 128000, sampleRate: 44100), // Re-encode audio to AAC to prevent iOS native crashes on raw audio (PCM) passthrough
+        debugLogging: kDebugMode,
       );
 
-      // ── Step 3: compress ──────────────────────────────────────────────────
-      final MediaInfo? result = await VideoCompress.compressVideo(
-        sourcePath,
-        quality: targetQuality,
-        deleteOrigin: false,
-        includeAudio: true,
-        frameRate: 30, // cap fps: halves size for 60fps sources
-      );
 
-      if (result != null && result.path != null) {
-        return File(result.path!);
+      if (result is OnSuccess) {
+        final outputFile = File(result.destinationPath);
+        final outputSize = outputFile.lengthSync();
+        debugPrint('CompressService: COMPLETED compression. Output: ${result.destinationPath} (size: $outputSize bytes)');
+        return outputFile;
+      } else if (result is OnFailure) {
+        debugPrint('CompressService: FAILED compression: ${result.message}');
+        throw Exception(result.message);
+      } else if (result is OnCancelled) {
+        debugPrint('CompressService: CANCELLED compression');
+        return null;
       }
       return null;
     } catch (e) {
       debugPrint('CompressService: compressVideo error: $e');
-      rethrow; // let the screen's catch block handle UI feedback
+      rethrow;
+    } finally {
+      if (localCopy != null) {
+        await cleanupLocalCopy(localCopy, sourcePath);
+      }
     }
   }
 
-
   /// Cancel current active video compression
   static Future<void> cancelVideoCompression() async {
-    await VideoCompress.cancelCompression();
+    await _videoCompressor.cancelCompression();
   }
 
   /// Format file size into a human-readable string (B, KB, MB, GB)
@@ -340,3 +248,4 @@ class CompressService {
     }
   }
 }
+

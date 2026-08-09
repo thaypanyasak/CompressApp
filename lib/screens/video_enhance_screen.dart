@@ -2,12 +2,13 @@ import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:video_compress/video_compress.dart';
+import 'package:light_compressor_v2/light_compressor_v2.dart';
 import '../compress_service.dart';
 import '../widgets/glowing_container.dart';
 import '../widgets/glow_picker_area.dart';
 import '../widgets/video_preview.dart';
 import '../utils/media_utility.dart';
+
 
 class VideoEnhanceScreen extends StatefulWidget {
   const VideoEnhanceScreen({super.key});
@@ -129,8 +130,9 @@ class _VideoEnhanceScreenState extends State<VideoEnhanceScreen> {
       try {
         final enhanced = await CompressService.compressVideo(
           sourcePath: workFile.path,
-          quality: VideoQuality.HighestQuality,
+          quality: VideoQuality.high,
         );
+
 
         fallbackTimer.cancel();
         sub.cancel();

@@ -1,15 +1,15 @@
 import 'dart:async';
 import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:video_compress/video_compress.dart';
+import 'package:light_compressor_v2/light_compressor_v2.dart';
 import '../compress_service.dart';
 import '../widgets/glowing_container.dart';
 import '../widgets/glow_picker_area.dart';
 import '../widgets/size_visualizer.dart';
 import '../widgets/video_preview.dart';
 import '../utils/media_utility.dart';
+
 
 class VideoCompressScreen extends StatefulWidget {
   const VideoCompressScreen({super.key});
@@ -27,7 +27,8 @@ class _CompressResult {
 class _VideoCompressScreenState extends State<VideoCompressScreen> {
   List<File> _selectedVideos = [];
   List<_CompressResult> _results = [];
-  VideoQuality _videoQuality = VideoQuality.MediumQuality;
+  VideoQuality _videoQuality = VideoQuality.medium;
+
 
   bool _isPickingFile = false;
   bool _isCompressing = false;
@@ -459,7 +460,7 @@ class _VideoCompressScreenState extends State<VideoCompressScreen> {
                         title: 'ประหยัด',
                         sub: 'ลดขนาด 70–85%',
                         detail: '360p',
-                        quality: VideoQuality.LowQuality,
+                        quality: VideoQuality.low,
                         icon: Icons.compress,
                         color: Colors.orangeAccent,
                       ),
@@ -470,7 +471,7 @@ class _VideoCompressScreenState extends State<VideoCompressScreen> {
                         title: 'สมดุล',
                         sub: 'ลดขนาด 50–70%',
                         detail: '480p ✦ แนะนำ',
-                        quality: VideoQuality.MediumQuality,
+                        quality: VideoQuality.medium,
                         icon: Icons.balance,
                         color: Colors.purpleAccent,
                       ),
@@ -480,12 +481,13 @@ class _VideoCompressScreenState extends State<VideoCompressScreen> {
                       child: _buildQualityCard(
                         title: 'คมชัด',
                         sub: 'ลดขนาด 20–40%',
-                        detail: '1080p',
-                        quality: VideoQuality.HighestQuality,
+                        detail: '720p',
+                        quality: VideoQuality.high,
                         icon: Icons.hd_rounded,
                         color: const Color(0xFF00E5FF),
                       ),
                     ),
+
                   ],
                 ),
                 const SizedBox(height: 16),
