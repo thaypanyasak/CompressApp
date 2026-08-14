@@ -1,0 +1,13 @@
+platform :ios, '13.0'
+
+ENV['COCOAPODS_DISABLE_STATS'] = 'true'
+
+project 'Runner', {
+  'Debug' => :debug,
+  'Profile' => :release,
+  'Release' => :release,
+}
+
+require File.expand_path(File.join(__dir__, 'Flutter', 'podhelper'))
+
+flutter_install_all_ios_pods(File.dirname(File.realpath(__FILE__)))
