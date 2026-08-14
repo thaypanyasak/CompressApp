@@ -2,7 +2,7 @@ name: Build iOS IPA (Unsigned)
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [main, master]
   workflow_dispatch:
 
 jobs:
@@ -17,15 +17,22 @@ jobs:
       - name: Set up Java
         uses: actions/setup-java@v4
         with:
-          distribution: 'temurin'
-          java-version: '17'
+          distribution: "temurin"
+          java-version: "17"
 
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.29.3'
-          channel: 'stable'
+          flutter-version: "3.29.3"
+          channel: "stable"
           cache: true
+
+      - name: Prepare Flutter iOS tooling without overwriting app code
+        run: |
+          mkdir -p ios/Flutter
+          flutter pub get
+          flutter precache --ios
+          ls -la ios/Flutter
 
       - name: Get Flutter dependencies
         run: flutter pub get

@@ -1,15 +1,16 @@
 import 'dart:async';
 import 'dart:io';
-import 'package:flutter/material.dart';
+
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/material.dart';
 import 'package:light_compressor_v2/light_compressor_v2.dart';
+
 import '../compress_service.dart';
-import '../widgets/glowing_container.dart';
+import '../utils/media_utility.dart';
 import '../widgets/glow_picker_area.dart';
+import '../widgets/glowing_container.dart';
 import '../widgets/size_visualizer.dart';
 import '../widgets/video_preview.dart';
-import '../utils/media_utility.dart';
-
 
 class VideoCompressScreen extends StatefulWidget {
   const VideoCompressScreen({super.key});
@@ -29,7 +30,6 @@ class _VideoCompressScreenState extends State<VideoCompressScreen> {
   List<_CompressResult> _results = [];
   VideoQuality _videoQuality = VideoQuality.medium;
 
-
   bool _isPickingFile = false;
   bool _isCompressing = false;
   bool _isCopyingToSandbox = false;
@@ -42,17 +42,19 @@ class _VideoCompressScreenState extends State<VideoCompressScreen> {
   Future<void> _pickVideos() async {
     setState(() => _isPickingFile = true);
     try {
-      final result = await FilePicker.platform.pickFiles(
+      final result = await FilePicker.pickFiles(
         type: FileType.video,
         allowMultiple: true,
-        allowCompression: false,
+        withData: false,
+        withReadStream: false,
       );
 
       if (result != null && result.files.isNotEmpty) {
-        final files = result.files
-            .where((f) => f.path != null)
-            .map((f) => File(f.path!))
-            .toList();
+        final files =
+            result.files
+                .where((f) => f.path != null)
+                .map((f) => File(f.path!))
+                .toList();
         setState(() {
           _selectedVideos = files;
           _results = [];
@@ -112,7 +114,10 @@ class _VideoCompressScreenState extends State<VideoCompressScreen> {
         } catch (e) {
           if (!mounted) break;
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('เตรียมไฟล์ iOS ล้มเหลว: $e'), backgroundColor: Colors.redAccent),
+            SnackBar(
+              content: Text('เตรียมไฟล์ iOS ล้มเหลว: $e'),
+              backgroundColor: Colors.redAccent,
+            ),
           );
           continue;
         } finally {
@@ -124,7 +129,10 @@ class _VideoCompressScreenState extends State<VideoCompressScreen> {
       // Real VideoCompress events (when they arrive) will override this.
       Timer? fallbackTimer;
       fallbackTimer = Timer.periodic(const Duration(milliseconds: 250), (t) {
-        if (!mounted) { t.cancel(); return; }
+        if (!mounted) {
+          t.cancel();
+          return;
+        }
         setState(() {
           if (_currentFileProgress < 70.0) {
             _currentFileProgress += (70.0 - _currentFileProgress) * 0.035 + 0.6;
@@ -154,7 +162,9 @@ class _VideoCompressScreenState extends State<VideoCompressScreen> {
 
         if (compressed != null && mounted) {
           setState(() {
-            _results.add(_CompressResult(original: srcFile, compressed: compressed));
+            _results.add(
+              _CompressResult(original: srcFile, compressed: compressed),
+            );
           });
         }
       } catch (e) {
@@ -163,7 +173,9 @@ class _VideoCompressScreenState extends State<VideoCompressScreen> {
         if (!mounted) break;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('ไฟล์ ${srcFile.path.split(Platform.pathSeparator).last}: $e'),
+            content: Text(
+              'ไฟล์ ${srcFile.path.split(Platform.pathSeparator).last}: $e',
+            ),
             backgroundColor: Colors.redAccent,
           ),
         );
@@ -178,7 +190,6 @@ class _VideoCompressScreenState extends State<VideoCompressScreen> {
       });
     }
   }
-
 
   Future<void> _cancelCompression() async {
     await CompressService.cancelVideoCompression();
@@ -214,7 +225,10 @@ class _VideoCompressScreenState extends State<VideoCompressScreen> {
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
         decoration: BoxDecoration(
-          color: isSelected ? color.withOpacity(0.12) : Colors.white.withOpacity(0.03),
+          color:
+              isSelected
+                  ? color.withOpacity(0.12)
+                  : Colors.white.withOpacity(0.03),
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
             color: isSelected ? color : Colors.white.withOpacity(0.08),
@@ -226,17 +240,28 @@ class _VideoCompressScreenState extends State<VideoCompressScreen> {
           children: [
             Icon(icon, color: isSelected ? color : Colors.white38, size: 22),
             const SizedBox(height: 6),
-            Text(title,
-              style: TextStyle(color: isSelected ? Colors.white : Colors.white60, fontWeight: FontWeight.bold, fontSize: 12),
+            Text(
+              title,
+              style: TextStyle(
+                color: isSelected ? Colors.white : Colors.white60,
+                fontWeight: FontWeight.bold,
+                fontSize: 12,
+              ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 3),
-            Text(sub,
-              style: TextStyle(color: isSelected ? color : Colors.white38, fontSize: 9, fontWeight: FontWeight.w600),
+            Text(
+              sub,
+              style: TextStyle(
+                color: isSelected ? color : Colors.white38,
+                fontSize: 9,
+                fontWeight: FontWeight.w600,
+              ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 2),
-            Text(detail,
+            Text(
+              detail,
               style: const TextStyle(color: Colors.white30, fontSize: 9),
               textAlign: TextAlign.center,
             ),
@@ -250,7 +275,10 @@ class _VideoCompressScreenState extends State<VideoCompressScreen> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(label, style: const TextStyle(color: Colors.white60, fontSize: 13)),
+        Text(
+          label,
+          style: const TextStyle(color: Colors.white60, fontSize: 13),
+        ),
         Flexible(
           child: Text(
             value,
@@ -272,8 +300,19 @@ class _VideoCompressScreenState extends State<VideoCompressScreen> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('• ', style: TextStyle(color: Color(0xFF00E5FF), fontWeight: FontWeight.bold)),
-          Expanded(child: Text(text, style: const TextStyle(color: Colors.white60, fontSize: 12))),
+          const Text(
+            '• ',
+            style: TextStyle(
+              color: Color(0xFF00E5FF),
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          Expanded(
+            child: Text(
+              text,
+              style: const TextStyle(color: Colors.white60, fontSize: 12),
+            ),
+          ),
         ],
       ),
     );
@@ -295,7 +334,11 @@ class _VideoCompressScreenState extends State<VideoCompressScreen> {
                 Expanded(
                   child: Text(
                     'หลักการบีบอัดวิดีโอออฟไลน์คืออะไร?',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Color(0xFF00E5FF)),
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 15,
+                      color: Color(0xFF00E5FF),
+                    ),
                   ),
                 ),
               ],
@@ -303,12 +346,20 @@ class _VideoCompressScreenState extends State<VideoCompressScreen> {
             const Divider(color: Colors.white12, height: 24),
             const Text(
               '1. แอปพลิเคชันบีบอัดแบบออฟไลน์ 100% บนโทรศัพท์มือถือของคุณ',
-              style: TextStyle(color: Colors.white70, fontSize: 13, height: 1.4),
+              style: TextStyle(
+                color: Colors.white70,
+                fontSize: 13,
+                height: 1.4,
+              ),
             ),
             const SizedBox(height: 8),
             const Text(
               '2. ใช้ตัวเข้ารหัสฮาร์ดแวร์ H.264/H.265 ปรับบิตเรตให้เหมาะสม:',
-              style: TextStyle(color: Colors.white70, fontSize: 13, height: 1.4),
+              style: TextStyle(
+                color: Colors.white70,
+                fontSize: 13,
+                height: 1.4,
+              ),
             ),
             Padding(
               padding: const EdgeInsets.only(left: 12.0, top: 8.0),
@@ -336,11 +387,26 @@ class _VideoCompressScreenState extends State<VideoCompressScreen> {
         padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 20),
         child: Column(
           children: [
-            const LinearProgressIndicator(color: Color(0xFFD500F9), backgroundColor: Colors.white10, minHeight: 6),
+            const LinearProgressIndicator(
+              color: Color(0xFFD500F9),
+              backgroundColor: Colors.white10,
+              minHeight: 6,
+            ),
             const SizedBox(height: 24),
-            const Text('กำลังโหลดไฟล์วิดีโอ...', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white)),
+            const Text(
+              'กำลังโหลดไฟล์วิดีโอ...',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+                color: Colors.white,
+              ),
+            ),
             const SizedBox(height: 8),
-            const Text('ไฟล์ขนาดใหญ่อาจใช้เวลาสักครู่', textAlign: TextAlign.center, style: TextStyle(color: Colors.white60, fontSize: 12)),
+            const Text(
+              'ไฟล์ขนาดใหญ่อาจใช้เวลาสักครู่',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.white60, fontSize: 12),
+            ),
           ],
         ),
       ),
@@ -363,22 +429,36 @@ class _VideoCompressScreenState extends State<VideoCompressScreen> {
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.video_collection_outlined, color: Colors.cyanAccent, size: 20),
+                    const Icon(
+                      Icons.video_collection_outlined,
+                      color: Colors.cyanAccent,
+                      size: 20,
+                    ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         'วิดีโอที่เลือก (${_selectedVideos.length} ไฟล์)',
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                          color: Colors.white,
+                        ),
                       ),
                     ),
                     // Add more
                     IconButton(
-                      icon: const Icon(Icons.add_circle_outline, color: Color(0xFF00E5FF)),
+                      icon: const Icon(
+                        Icons.add_circle_outline,
+                        color: Color(0xFF00E5FF),
+                      ),
                       tooltip: 'เพิ่มวิดีโอ',
                       onPressed: _pickVideos,
                     ),
                     IconButton(
-                      icon: const Icon(Icons.refresh_rounded, color: Colors.white60),
+                      icon: const Icon(
+                        Icons.refresh_rounded,
+                        color: Colors.white60,
+                      ),
                       tooltip: 'เริ่มใหม่',
                       onPressed: _reset,
                     ),
@@ -391,7 +471,10 @@ class _VideoCompressScreenState extends State<VideoCompressScreen> {
                   final size = f.lengthSync();
                   return Container(
                     margin: const EdgeInsets.only(bottom: 8),
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.white.withOpacity(0.05),
                       borderRadius: BorderRadius.circular(12),
@@ -400,26 +483,53 @@ class _VideoCompressScreenState extends State<VideoCompressScreen> {
                     child: Row(
                       children: [
                         Container(
-                          width: 32, height: 32,
+                          width: 32,
+                          height: 32,
                           decoration: BoxDecoration(
                             color: const Color(0xFF8E2DE2).withOpacity(0.3),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           alignment: Alignment.center,
-                          child: Text('${i + 1}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
+                          child: Text(
+                            '${i + 1}',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12,
+                            ),
+                          ),
                         ),
                         const SizedBox(width: 10),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(name, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w500), maxLines: 1, overflow: TextOverflow.ellipsis),
-                              Text(CompressService.formatBytes(size), style: const TextStyle(color: Colors.white54, fontSize: 11)),
+                              Text(
+                                name,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              Text(
+                                CompressService.formatBytes(size),
+                                style: const TextStyle(
+                                  color: Colors.white54,
+                                  fontSize: 11,
+                                ),
+                              ),
                             ],
                           ),
                         ),
                         IconButton(
-                          icon: const Icon(Icons.remove_circle_outline, color: Colors.redAccent, size: 20),
+                          icon: const Icon(
+                            Icons.remove_circle_outline,
+                            color: Colors.redAccent,
+                            size: 20,
+                          ),
                           padding: EdgeInsets.zero,
                           constraints: const BoxConstraints(),
                           onPressed: () => _removeVideo(i),
@@ -445,13 +555,30 @@ class _VideoCompressScreenState extends State<VideoCompressScreen> {
               children: [
                 const Row(
                   children: [
-                    Icon(Icons.tune_rounded, color: Colors.purpleAccent, size: 20),
+                    Icon(
+                      Icons.tune_rounded,
+                      color: Colors.purpleAccent,
+                      size: 20,
+                    ),
                     SizedBox(width: 8),
-                    Text('ตัวเลือกการบีบอัดวิดีโอ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white)),
+                    Text(
+                      'ตัวเลือกการบีบอัดวิดีโอ',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                        color: Colors.white,
+                      ),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 20),
-                const Text('คุณภาพวิดีโอปลายทาง:', style: TextStyle(color: Colors.white70, fontWeight: FontWeight.w600)),
+                const Text(
+                  'คุณภาพวิดีโอปลายทาง:',
+                  style: TextStyle(
+                    color: Colors.white70,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
                 const SizedBox(height: 12),
                 Row(
                   children: [
@@ -487,13 +614,15 @@ class _VideoCompressScreenState extends State<VideoCompressScreen> {
                         color: const Color(0xFF00E5FF),
                       ),
                     ),
-
                   ],
                 ),
                 const SizedBox(height: 16),
                 // Info tip
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.white.withOpacity(0.04),
                     borderRadius: BorderRadius.circular(12),
@@ -502,17 +631,40 @@ class _VideoCompressScreenState extends State<VideoCompressScreen> {
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Icon(Icons.lightbulb_outline_rounded, color: Colors.cyanAccent, size: 16),
+                      const Icon(
+                        Icons.lightbulb_outline_rounded,
+                        color: Colors.cyanAccent,
+                        size: 16,
+                      ),
                       const SizedBox(width: 8),
                       Expanded(
                         child: RichText(
                           text: const TextSpan(
-                            style: TextStyle(color: Colors.white54, fontSize: 11, height: 1.5),
+                            style: TextStyle(
+                              color: Colors.white54,
+                              fontSize: 11,
+                              height: 1.5,
+                            ),
                             children: [
-                              TextSpan(text: 'เคล็ดลับ: ', style: TextStyle(color: Colors.cyanAccent, fontWeight: FontWeight.bold)),
+                              TextSpan(
+                                text: 'เคล็ดลับ: ',
+                                style: TextStyle(
+                                  color: Colors.cyanAccent,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
                               TextSpan(text: 'ทุกโหมดใช้ '),
-                              TextSpan(text: '30 fps ', style: TextStyle(color: Colors.white70, fontWeight: FontWeight.bold)),
-                              TextSpan(text: 'ซึ่งลดขนาดได้ 40–50% สำหรับวิดีโอ 60fps โดยไม่สูญเสียความคมชัดที่มองเห็นได้'),
+                              TextSpan(
+                                text: '30 fps ',
+                                style: TextStyle(
+                                  color: Colors.white70,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              TextSpan(
+                                text:
+                                    'ซึ่งลดขนาดได้ 40–50% สำหรับวิดีโอ 60fps โดยไม่สูญเสียความคมชัดที่มองเห็นได้',
+                              ),
                             ],
                           ),
                         ),
@@ -531,13 +683,19 @@ class _VideoCompressScreenState extends State<VideoCompressScreen> {
           onPressed: _compressAll,
           style: ElevatedButton.styleFrom(
             padding: EdgeInsets.zero,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(18),
+            ),
             elevation: 8,
             shadowColor: const Color(0xFFD500F9).withOpacity(0.5),
           ),
           child: Ink(
             decoration: BoxDecoration(
-              gradient: const LinearGradient(colors: [Color(0xFFD500F9), Color(0xFF8E2DE2)], begin: Alignment.centerLeft, end: Alignment.centerRight),
+              gradient: const LinearGradient(
+                colors: [Color(0xFFD500F9), Color(0xFF8E2DE2)],
+                begin: Alignment.centerLeft,
+                end: Alignment.centerRight,
+              ),
               borderRadius: BorderRadius.circular(18),
             ),
             child: Container(
@@ -549,8 +707,14 @@ class _VideoCompressScreenState extends State<VideoCompressScreen> {
                   const Icon(Icons.video_settings, color: Colors.white),
                   const SizedBox(width: 8),
                   Text(
-                    _selectedVideos.length == 1 ? 'เริ่มบีบอัดวิดีโอ' : 'เริ่มบีบอัด ${_selectedVideos.length} วิดีโอ',
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white),
+                    _selectedVideos.length == 1
+                        ? 'เริ่มบีบอัดวิดีโอ'
+                        : 'เริ่มบีบอัด ${_selectedVideos.length} วิดีโอ',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                      color: Colors.white,
+                    ),
                   ),
                 ],
               ),
@@ -565,7 +729,8 @@ class _VideoCompressScreenState extends State<VideoCompressScreen> {
   Widget _buildCompressingState() {
     final total = _selectedVideos.length;
     final done = _results.length;
-    final overallProgress = total == 0 ? 0.0 : (done + _currentFileProgress / 100) / total;
+    final overallProgress =
+        total == 0 ? 0.0 : (done + _currentFileProgress / 100) / total;
 
     return Column(
       children: [
@@ -580,13 +745,36 @@ class _VideoCompressScreenState extends State<VideoCompressScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Expanded(child: Text('กำลังเตรียมไฟล์วิดีโอ iOS...', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.white))),
-                      Text('${(_copyProgress * 100).toStringAsFixed(0)}%', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.cyanAccent)),
+                      const Expanded(
+                        child: Text(
+                          'กำลังเตรียมไฟล์วิดีโอ iOS...',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                      Text(
+                        '${(_copyProgress * 100).toStringAsFixed(0)}%',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 18,
+                          color: Colors.cyanAccent,
+                        ),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 16),
-                  ClipRRect(borderRadius: BorderRadius.circular(8),
-                    child: LinearProgressIndicator(value: _copyProgress, color: const Color(0xFF00E5FF), backgroundColor: Colors.white10, minHeight: 8)),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: LinearProgressIndicator(
+                      value: _copyProgress,
+                      color: const Color(0xFF00E5FF),
+                      backgroundColor: Colors.white10,
+                      minHeight: 8,
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -607,17 +795,31 @@ class _VideoCompressScreenState extends State<VideoCompressScreen> {
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('กำลังบีบอัดวิดีโอ...', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Colors.white)),
+                        const Text(
+                          'กำลังบีบอัดวิดีโอ...',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 15,
+                            color: Colors.white,
+                          ),
+                        ),
                         const SizedBox(height: 4),
                         Text(
                           'ไฟล์ที่ ${_currentIndex + 1} / $total',
-                          style: const TextStyle(color: Colors.white54, fontSize: 12),
+                          style: const TextStyle(
+                            color: Colors.white54,
+                            fontSize: 12,
+                          ),
                         ),
                       ],
                     ),
                     Text(
                       '${_currentFileProgress.toStringAsFixed(0)}%',
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 22, color: Colors.cyanAccent),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 22,
+                        color: Colors.cyanAccent,
+                      ),
                     ),
                   ],
                 ),
@@ -637,8 +839,21 @@ class _VideoCompressScreenState extends State<VideoCompressScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text('ภาพรวม: ${done}/${total} ไฟล์', style: const TextStyle(color: Colors.white54, fontSize: 12)),
-                      Text('${(overallProgress * 100).toStringAsFixed(0)}%', style: const TextStyle(color: Colors.purpleAccent, fontSize: 12, fontWeight: FontWeight.bold)),
+                      Text(
+                        'ภาพรวม: ${done}/${total} ไฟล์',
+                        style: const TextStyle(
+                          color: Colors.white54,
+                          fontSize: 12,
+                        ),
+                      ),
+                      Text(
+                        '${(overallProgress * 100).toStringAsFixed(0)}%',
+                        style: const TextStyle(
+                          color: Colors.purpleAccent,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 6),
@@ -656,7 +871,11 @@ class _VideoCompressScreenState extends State<VideoCompressScreen> {
                 const Text(
                   'การทำงานออฟไลน์ใช้ประสิทธิภาพสูงสุดของโทรศัพท์\nโปรดอย่าปิดแอปพลิเคชัน',
                   textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.white54, fontSize: 12, height: 1.5),
+                  style: TextStyle(
+                    color: Colors.white54,
+                    fontSize: 12,
+                    height: 1.5,
+                  ),
                 ),
                 const SizedBox(height: 16),
                 OutlinedButton.icon(
@@ -666,7 +885,9 @@ class _VideoCompressScreenState extends State<VideoCompressScreen> {
                   style: OutlinedButton.styleFrom(
                     foregroundColor: Colors.redAccent,
                     side: const BorderSide(color: Colors.redAccent),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
                 ),
               ],
@@ -679,9 +900,18 @@ class _VideoCompressScreenState extends State<VideoCompressScreen> {
 
   // ─── PHASE: Results ──────────────────────────────────────────────────────
   Widget _buildResultsState() {
-    final totalOriginalSize = _results.fold<int>(0, (s, r) => s + r.original.lengthSync());
-    final totalCompressedSize = _results.fold<int>(0, (s, r) => s + r.compressed.lengthSync());
-    final reduction = CompressService.getReductionPercentage(totalOriginalSize, totalCompressedSize);
+    final totalOriginalSize = _results.fold<int>(
+      0,
+      (s, r) => s + r.original.lengthSync(),
+    );
+    final totalCompressedSize = _results.fold<int>(
+      0,
+      (s, r) => s + r.compressed.lengthSync(),
+    );
+    final reduction = CompressService.getReductionPercentage(
+      totalOriginalSize,
+      totalCompressedSize,
+    );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -700,31 +930,69 @@ class _VideoCompressScreenState extends State<VideoCompressScreen> {
                   children: [
                     const Row(
                       children: [
-                        Icon(Icons.check_circle_rounded, color: Colors.greenAccent, size: 22),
+                        Icon(
+                          Icons.check_circle_rounded,
+                          color: Colors.greenAccent,
+                          size: 22,
+                        ),
                         SizedBox(width: 8),
-                        Text('บีบอัดสำเร็จแล้ว!', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white)),
+                        Text(
+                          'บีบอัดสำเร็จแล้ว!',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                            color: Colors.white,
+                          ),
+                        ),
                       ],
                     ),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(colors: [Color(0xFF00E5FF), Color(0xFF00B0FF)]),
-                        borderRadius: BorderRadius.circular(20),
-                        boxShadow: [BoxShadow(color: const Color(0xFF00E5FF).withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 2))],
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 6,
                       ),
-                      child: Text('ลดลง ${reduction.toStringAsFixed(1)}%',
-                        style: const TextStyle(color: Color(0xFF080614), fontWeight: FontWeight.w900, fontSize: 13)),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFF00E5FF), Color(0xFF00B0FF)],
+                        ),
+                        borderRadius: BorderRadius.circular(20),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFF00E5FF).withOpacity(0.3),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Text(
+                        'ลดลง ${reduction.toStringAsFixed(1)}%',
+                        style: const TextStyle(
+                          color: Color(0xFF080614),
+                          fontWeight: FontWeight.w900,
+                          fontSize: 13,
+                        ),
+                      ),
                     ),
                   ],
                 ),
                 const Divider(color: Colors.white12, height: 24),
                 _buildStatRow('จำนวนไฟล์:', '${_results.length} วิดีโอ'),
                 const SizedBox(height: 8),
-                _buildStatRow('เวลาที่ใช้:', '${(_videoTimeTakenMs / 1000).toStringAsFixed(1)} วินาที'),
+                _buildStatRow(
+                  'เวลาที่ใช้:',
+                  '${(_videoTimeTakenMs / 1000).toStringAsFixed(1)} วินาที',
+                ),
                 const SizedBox(height: 8),
-                _buildStatRow('ขนาดรวมก่อน:', CompressService.formatBytes(totalOriginalSize)),
+                _buildStatRow(
+                  'ขนาดรวมก่อน:',
+                  CompressService.formatBytes(totalOriginalSize),
+                ),
                 const SizedBox(height: 8),
-                _buildStatRow('ขนาดรวมหลัง:', CompressService.formatBytes(totalCompressedSize), highlight: true),
+                _buildStatRow(
+                  'ขนาดรวมหลัง:',
+                  CompressService.formatBytes(totalCompressedSize),
+                  highlight: true,
+                ),
                 const SizedBox(height: 16),
                 const Divider(color: Colors.white12, height: 1),
                 const SizedBox(height: 16),
@@ -753,7 +1021,10 @@ class _VideoCompressScreenState extends State<VideoCompressScreen> {
           final r = entry.value;
           final origSize = r.original.lengthSync();
           final compSize = r.compressed.lengthSync();
-          final red = CompressService.getReductionPercentage(origSize, compSize);
+          final red = CompressService.getReductionPercentage(
+            origSize,
+            compSize,
+          );
           final name = r.original.path.split(Platform.pathSeparator).last;
 
           return Container(
@@ -769,26 +1040,72 @@ class _VideoCompressScreenState extends State<VideoCompressScreen> {
                     Row(
                       children: [
                         Container(
-                          width: 28, height: 28,
-                          decoration: BoxDecoration(color: const Color(0xFF00E5FF).withOpacity(0.15), borderRadius: BorderRadius.circular(8)),
+                          width: 28,
+                          height: 28,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF00E5FF).withOpacity(0.15),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
                           alignment: Alignment.center,
-                          child: Text('${i + 1}', style: const TextStyle(color: Color(0xFF00E5FF), fontWeight: FontWeight.bold, fontSize: 12)),
+                          child: Text(
+                            '${i + 1}',
+                            style: const TextStyle(
+                              color: Color(0xFF00E5FF),
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12,
+                            ),
+                          ),
                         ),
                         const SizedBox(width: 10),
-                        Expanded(child: Text(name, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w500), maxLines: 1, overflow: TextOverflow.ellipsis)),
+                        Expanded(
+                          child: Text(
+                            name,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                          decoration: BoxDecoration(color: Colors.greenAccent.withOpacity(0.15), borderRadius: BorderRadius.circular(8)),
-                          child: Text('-${red.toStringAsFixed(0)}%', style: const TextStyle(color: Colors.greenAccent, fontSize: 11, fontWeight: FontWeight.bold)),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 3,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.greenAccent.withOpacity(0.15),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            '-${red.toStringAsFixed(0)}%',
+                            style: const TextStyle(
+                              color: Colors.greenAccent,
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                         ),
                       ],
                     ),
                     const SizedBox(height: 8),
                     Row(
                       children: [
-                        Expanded(child: _buildStatRow('เดิม:', CompressService.formatBytes(origSize))),
+                        Expanded(
+                          child: _buildStatRow(
+                            'เดิม:',
+                            CompressService.formatBytes(origSize),
+                          ),
+                        ),
                         const SizedBox(width: 16),
-                        Expanded(child: _buildStatRow('หลังนัน:', CompressService.formatBytes(compSize), highlight: true)),
+                        Expanded(
+                          child: _buildStatRow(
+                            'หลังนัน:',
+                            CompressService.formatBytes(compSize),
+                            highlight: true,
+                          ),
+                        ),
                       ],
                     ),
                     const SizedBox(height: 10),
@@ -798,13 +1115,23 @@ class _VideoCompressScreenState extends State<VideoCompressScreen> {
                       children: [
                         Expanded(
                           child: OutlinedButton.icon(
-                            onPressed: () => MediaUtility.saveToGallery(context, r.compressed, isVideo: true),
+                            onPressed:
+                                () => MediaUtility.saveToGallery(
+                                  context,
+                                  r.compressed,
+                                  isVideo: true,
+                                ),
                             icon: const Icon(Icons.save_alt_rounded, size: 16),
-                            label: const Text('บันทึก', style: TextStyle(fontSize: 12)),
+                            label: const Text(
+                              'บันทึก',
+                              style: TextStyle(fontSize: 12),
+                            ),
                             style: OutlinedButton.styleFrom(
                               foregroundColor: const Color(0xFF00E5FF),
                               side: const BorderSide(color: Color(0xFF00E5FF)),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
                               padding: const EdgeInsets.symmetric(vertical: 10),
                             ),
                           ),
@@ -812,13 +1139,24 @@ class _VideoCompressScreenState extends State<VideoCompressScreen> {
                         const SizedBox(width: 8),
                         Expanded(
                           child: OutlinedButton.icon(
-                            onPressed: () => MediaUtility.shareFile(r.compressed, 'compressed_${i + 1}.mp4'),
+                            onPressed:
+                                () => MediaUtility.shareFile(
+                                  r.compressed,
+                                  'compressed_${i + 1}.mp4',
+                                ),
                             icon: const Icon(Icons.share, size: 16),
-                            label: const Text('แชร์', style: TextStyle(fontSize: 12)),
+                            label: const Text(
+                              'แชร์',
+                              style: TextStyle(fontSize: 12),
+                            ),
                             style: OutlinedButton.styleFrom(
                               foregroundColor: Colors.purpleAccent,
-                              side: const BorderSide(color: Colors.purpleAccent),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              side: const BorderSide(
+                                color: Colors.purpleAccent,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
                               padding: const EdgeInsets.symmetric(vertical: 10),
                             ),
                           ),
@@ -835,7 +1173,10 @@ class _VideoCompressScreenState extends State<VideoCompressScreen> {
         const SizedBox(height: 8),
         TextButton(
           onPressed: _reset,
-          child: const Text('บีบอัดวิดีโออื่น', style: TextStyle(color: Colors.cyanAccent)),
+          child: const Text(
+            'บีบอัดวิดีโออื่น',
+            style: TextStyle(color: Colors.cyanAccent),
+          ),
         ),
         const SizedBox(height: 16),
       ],
@@ -852,19 +1193,17 @@ class _VideoCompressScreenState extends State<VideoCompressScreen> {
         children: [
           if (_isPickingFile)
             _buildPickingState()
-          else if (_selectedVideos.isEmpty && _results.isEmpty)
-            ...[
-              GlowPickerArea(
-                title: 'เลือกวิดีโอเพื่อบีบอัด',
-                subtitle: 'รองรับหลายไฟล์พร้อมกัน — แตะเพื่อเลือก',
-                icon: Icons.video_call_rounded,
-                onTap: _pickVideos,
-                gradientColors: const [Color(0xFF8E2DE2), Color(0xFFD500F9)],
-              ),
-              const SizedBox(height: 24),
-              _buildInfoCard(),
-            ]
-          else if (_isCompressing)
+          else if (_selectedVideos.isEmpty && _results.isEmpty) ...[
+            GlowPickerArea(
+              title: 'เลือกวิดีโอเพื่อบีบอัด',
+              subtitle: 'รองรับหลายไฟล์พร้อมกัน — แตะเพื่อเลือก',
+              icon: Icons.video_call_rounded,
+              onTap: _pickVideos,
+              gradientColors: const [Color(0xFF8E2DE2), Color(0xFFD500F9)],
+            ),
+            const SizedBox(height: 24),
+            _buildInfoCard(),
+          ] else if (_isCompressing)
             _buildCompressingState()
           else if (_results.isNotEmpty)
             _buildResultsState()

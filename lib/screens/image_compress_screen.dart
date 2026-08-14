@@ -1,14 +1,16 @@
 import 'dart:async';
 import 'dart:io';
-import 'package:flutter/material.dart';
+
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
+
 import '../compress_service.dart';
-import '../widgets/glowing_container.dart';
-import '../widgets/glow_picker_area.dart';
-import '../widgets/size_visualizer.dart';
-import '../widgets/before_after_slider.dart';
 import '../utils/media_utility.dart';
+import '../widgets/before_after_slider.dart';
+import '../widgets/glow_picker_area.dart';
+import '../widgets/glowing_container.dart';
+import '../widgets/size_visualizer.dart';
 
 class ImageCompressScreen extends StatefulWidget {
   const ImageCompressScreen({super.key});
@@ -37,17 +39,19 @@ class _ImageCompressScreenState extends State<ImageCompressScreen> {
   int _imageTimeTakenMs = 0;
 
   Future<void> _pickImages() async {
-    final result = await FilePicker.platform.pickFiles(
+    final result = await FilePicker.pickFiles(
       type: FileType.image,
       allowMultiple: true,
-      allowCompression: false,
+      withData: false,
+      withReadStream: false,
     );
 
     if (result != null && result.files.isNotEmpty) {
-      final files = result.files
-          .where((f) => f.path != null)
-          .map((f) => File(f.path!))
-          .toList();
+      final files =
+          result.files
+              .where((f) => f.path != null)
+              .map((f) => File(f.path!))
+              .toList();
       setState(() {
         _selectedImages = files;
         _results = [];
@@ -61,7 +65,10 @@ class _ImageCompressScreenState extends State<ImageCompressScreen> {
     _currentProgress = 0.0;
     _progressTimer?.cancel();
     _progressTimer = Timer.periodic(const Duration(milliseconds: 120), (timer) {
-      if (!mounted) { timer.cancel(); return; }
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
       setState(() {
         if (_currentProgress < 85.0) {
           _currentProgress += (85.0 - _currentProgress) * 0.04 + 0.3;
@@ -105,9 +112,11 @@ class _ImageCompressScreenState extends State<ImageCompressScreen> {
         int? minWidth;
         int? minHeight;
         if (_imageResolutionLimit == '1080p') {
-          minWidth = 1920; minHeight = 1080;
+          minWidth = 1920;
+          minHeight = 1080;
         } else if (_imageResolutionLimit == '720p') {
-          minWidth = 1280; minHeight = 720;
+          minWidth = 1280;
+          minHeight = 720;
         }
 
         final compressed = await CompressService.compressImage(
@@ -122,14 +131,20 @@ class _ImageCompressScreenState extends State<ImageCompressScreen> {
         await Future.delayed(const Duration(milliseconds: 200));
 
         if (compressed != null && mounted) {
-          setState(() => _results.add(_CompressResult(original: srcFile, compressed: compressed)));
+          setState(
+            () => _results.add(
+              _CompressResult(original: srcFile, compressed: compressed),
+            ),
+          );
         }
       } catch (e) {
         _finishProgress();
         if (!mounted) break;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('ไฟล์ ${srcFile.path.split(Platform.pathSeparator).last}: $e'),
+            content: Text(
+              'ไฟล์ ${srcFile.path.split(Platform.pathSeparator).last}: $e',
+            ),
             backgroundColor: Colors.redAccent,
           ),
         );
@@ -169,12 +184,19 @@ class _ImageCompressScreenState extends State<ImageCompressScreen> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(label, style: const TextStyle(color: Colors.white60, fontSize: 13)),
+        Text(
+          label,
+          style: const TextStyle(color: Colors.white60, fontSize: 13),
+        ),
         Flexible(
           child: Text(
             value,
             textAlign: TextAlign.right,
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: highlight ? Colors.cyanAccent : Colors.white),
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 13,
+              color: highlight ? Colors.cyanAccent : Colors.white,
+            ),
           ),
         ),
       ],
@@ -192,7 +214,6 @@ class _ImageCompressScreenState extends State<ImageCompressScreen> {
     );
   }
 
-
   // ─── PHASE: File List (before compress) ──────────────────────────────────
   Widget _buildFileListState() {
     return Column(
@@ -208,19 +229,35 @@ class _ImageCompressScreenState extends State<ImageCompressScreen> {
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.image_outlined, color: Colors.cyanAccent, size: 20),
+                    const Icon(
+                      Icons.image_outlined,
+                      color: Colors.cyanAccent,
+                      size: 20,
+                    ),
                     const SizedBox(width: 8),
                     Expanded(
-                      child: Text('รูปภาพที่เลือก (${_selectedImages.length} ภาพ)',
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white)),
+                      child: Text(
+                        'รูปภาพที่เลือก (${_selectedImages.length} ภาพ)',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                          color: Colors.white,
+                        ),
+                      ),
                     ),
                     IconButton(
-                      icon: const Icon(Icons.add_circle_outline, color: Color(0xFF00E5FF)),
+                      icon: const Icon(
+                        Icons.add_circle_outline,
+                        color: Color(0xFF00E5FF),
+                      ),
                       tooltip: 'เพิ่มรูปภาพ',
                       onPressed: _pickImages,
                     ),
                     IconButton(
-                      icon: const Icon(Icons.refresh_rounded, color: Colors.white60),
+                      icon: const Icon(
+                        Icons.refresh_rounded,
+                        color: Colors.white60,
+                      ),
                       onPressed: _reset,
                     ),
                   ],
@@ -231,14 +268,28 @@ class _ImageCompressScreenState extends State<ImageCompressScreen> {
                   spacing: 8,
                   runSpacing: 8,
                   children: List.generate(_selectedImages.length, (i) {
-                    final name = _selectedImages[i].path.split(Platform.pathSeparator).last;
+                    final name =
+                        _selectedImages[i].path
+                            .split(Platform.pathSeparator)
+                            .last;
                     return Chip(
-                      avatar: const Icon(Icons.image, size: 16, color: Color(0xFF00E5FF)),
+                      avatar: const Icon(
+                        Icons.image,
+                        size: 16,
+                        color: Color(0xFF00E5FF),
+                      ),
                       label: Text(
                         name.length > 18 ? '${name.substring(0, 15)}...' : name,
-                        style: const TextStyle(fontSize: 11, color: Colors.white),
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: Colors.white,
+                        ),
                       ),
-                      deleteIcon: const Icon(Icons.close, size: 14, color: Colors.redAccent),
+                      deleteIcon: const Icon(
+                        Icons.close,
+                        size: 14,
+                        color: Colors.redAccent,
+                      ),
                       onDeleted: () => _removeImage(i),
                       backgroundColor: Colors.white.withOpacity(0.07),
                       side: BorderSide(color: Colors.white.withOpacity(0.12)),
@@ -262,22 +313,44 @@ class _ImageCompressScreenState extends State<ImageCompressScreen> {
               children: [
                 const Row(
                   children: [
-                    Icon(Icons.tune_rounded, color: Color(0xFF00E5FF), size: 20),
+                    Icon(
+                      Icons.tune_rounded,
+                      color: Color(0xFF00E5FF),
+                      size: 20,
+                    ),
                     SizedBox(width: 8),
-                    Text('ตัวเลือกการบีบอัด', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white)),
+                    Text(
+                      'ตัวเลือกการบีบอัด',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                        color: Colors.white,
+                      ),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 20),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text('คุณภาพของรูปภาพ:', style: TextStyle(color: Colors.white70)),
-                    Text('${_imageQuality.toInt()}%', style: const TextStyle(color: Color(0xFF00E5FF), fontWeight: FontWeight.bold)),
+                    const Text(
+                      'คุณภาพของรูปภาพ:',
+                      style: TextStyle(color: Colors.white70),
+                    ),
+                    Text(
+                      '${_imageQuality.toInt()}%',
+                      style: const TextStyle(
+                        color: Color(0xFF00E5FF),
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ],
                 ),
                 Slider(
                   value: _imageQuality,
-                  min: 10, max: 100, divisions: 90,
+                  min: 10,
+                  max: 100,
+                  divisions: 90,
                   activeColor: const Color(0xFF00E5FF),
                   inactiveColor: Colors.white10,
                   onChanged: (val) => setState(() => _imageQuality = val),
@@ -286,28 +359,57 @@ class _ImageCompressScreenState extends State<ImageCompressScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text('นามสกุลไฟล์ปลายทาง:', style: TextStyle(fontSize: 14, color: Colors.white70)),
+                    const Text(
+                      'นามสกุลไฟล์ปลายทาง:',
+                      style: TextStyle(fontSize: 14, color: Colors.white70),
+                    ),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 2,
+                      ),
                       decoration: BoxDecoration(
                         color: const Color(0xFF130E29).withOpacity(0.6),
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.white.withOpacity(0.08)),
+                        border: Border.all(
+                          color: Colors.white.withOpacity(0.08),
+                        ),
                       ),
                       child: DropdownButtonHideUnderline(
                         child: DropdownButton<CompressFormat>(
                           value: _imageFormat,
                           dropdownColor: const Color(0xFF1A1435),
                           borderRadius: BorderRadius.circular(16),
-                          icon: const Icon(Icons.keyboard_arrow_down_rounded, color: Color(0xFF00E5FF)),
-                          style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
+                          icon: const Icon(
+                            Icons.keyboard_arrow_down_rounded,
+                            color: Color(0xFF00E5FF),
+                          ),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                          ),
                           items: const [
-                            DropdownMenuItem(value: CompressFormat.jpeg, child: Text('JPEG')),
-                            DropdownMenuItem(value: CompressFormat.png, child: Text('PNG')),
-                            DropdownMenuItem(value: CompressFormat.webp, child: Text('WEBP (แนะนำ)')),
-                            DropdownMenuItem(value: CompressFormat.heic, child: Text('HEIC')),
+                            DropdownMenuItem(
+                              value: CompressFormat.jpeg,
+                              child: Text('JPEG'),
+                            ),
+                            DropdownMenuItem(
+                              value: CompressFormat.png,
+                              child: Text('PNG'),
+                            ),
+                            DropdownMenuItem(
+                              value: CompressFormat.webp,
+                              child: Text('WEBP (แนะนำ)'),
+                            ),
+                            DropdownMenuItem(
+                              value: CompressFormat.heic,
+                              child: Text('HEIC'),
+                            ),
                           ],
-                          onChanged: (val) { if (val != null) setState(() => _imageFormat = val); },
+                          onChanged: (val) {
+                            if (val != null) setState(() => _imageFormat = val);
+                          },
                         ),
                       ),
                     ),
@@ -317,27 +419,54 @@ class _ImageCompressScreenState extends State<ImageCompressScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text('จำกัดความละเอียด:', style: TextStyle(fontSize: 14, color: Colors.white70)),
+                    const Text(
+                      'จำกัดความละเอียด:',
+                      style: TextStyle(fontSize: 14, color: Colors.white70),
+                    ),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 2,
+                      ),
                       decoration: BoxDecoration(
                         color: const Color(0xFF130E29).withOpacity(0.6),
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.white.withOpacity(0.08)),
+                        border: Border.all(
+                          color: Colors.white.withOpacity(0.08),
+                        ),
                       ),
                       child: DropdownButtonHideUnderline(
                         child: DropdownButton<String>(
                           value: _imageResolutionLimit,
                           dropdownColor: const Color(0xFF1A1435),
                           borderRadius: BorderRadius.circular(16),
-                          icon: const Icon(Icons.keyboard_arrow_down_rounded, color: Color(0xFF00E5FF)),
-                          style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
+                          icon: const Icon(
+                            Icons.keyboard_arrow_down_rounded,
+                            color: Color(0xFF00E5FF),
+                          ),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                          ),
                           items: const [
-                            DropdownMenuItem(value: 'Original', child: Text('คงขนาดเดิม')),
-                            DropdownMenuItem(value: '1080p', child: Text('สูงสุด 1080p')),
-                            DropdownMenuItem(value: '720p', child: Text('สูงสุด 720p')),
+                            DropdownMenuItem(
+                              value: 'Original',
+                              child: Text('คงขนาดเดิม'),
+                            ),
+                            DropdownMenuItem(
+                              value: '1080p',
+                              child: Text('สูงสุด 1080p'),
+                            ),
+                            DropdownMenuItem(
+                              value: '720p',
+                              child: Text('สูงสุด 720p'),
+                            ),
                           ],
-                          onChanged: (val) { if (val != null) setState(() => _imageResolutionLimit = val); },
+                          onChanged: (val) {
+                            if (val != null)
+                              setState(() => _imageResolutionLimit = val);
+                          },
                         ),
                       ),
                     ),
@@ -353,13 +482,19 @@ class _ImageCompressScreenState extends State<ImageCompressScreen> {
           onPressed: _compressAll,
           style: ElevatedButton.styleFrom(
             padding: EdgeInsets.zero,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(18),
+            ),
             elevation: 8,
             shadowColor: const Color(0xFF8E2DE2).withOpacity(0.5),
           ),
           child: Ink(
             decoration: BoxDecoration(
-              gradient: const LinearGradient(colors: [Color(0xFF8E2DE2), Color(0xFF4A00E0)], begin: Alignment.centerLeft, end: Alignment.centerRight),
+              gradient: const LinearGradient(
+                colors: [Color(0xFF8E2DE2), Color(0xFF4A00E0)],
+                begin: Alignment.centerLeft,
+                end: Alignment.centerRight,
+              ),
               borderRadius: BorderRadius.circular(18),
             ),
             child: Container(
@@ -371,8 +506,14 @@ class _ImageCompressScreenState extends State<ImageCompressScreen> {
                   const Icon(Icons.compress, color: Colors.white),
                   const SizedBox(width: 8),
                   Text(
-                    _selectedImages.length == 1 ? 'เริ่มบีบอัดรูปภาพ' : 'เริ่มบีบอัด ${_selectedImages.length} ภาพ',
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white),
+                    _selectedImages.length == 1
+                        ? 'เริ่มบีบอัดรูปภาพ'
+                        : 'เริ่มบีบอัด ${_selectedImages.length} ภาพ',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                      color: Colors.white,
+                    ),
                   ),
                 ],
               ),
@@ -387,7 +528,8 @@ class _ImageCompressScreenState extends State<ImageCompressScreen> {
   Widget _buildCompressingState() {
     final total = _selectedImages.length;
     final done = _results.length;
-    final overallProgress = total == 0 ? 0.0 : (done + _currentProgress / 100) / total;
+    final overallProgress =
+        total == 0 ? 0.0 : (done + _currentProgress / 100) / total;
 
     return GlowingContainer(
       gradientColors: const [Color(0xFF8E2DE2), Color(0xFF4A00E0)],
@@ -403,13 +545,32 @@ class _ImageCompressScreenState extends State<ImageCompressScreen> {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('กำลังบีบอัดรูปภาพ...', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Colors.white)),
+                    const Text(
+                      'กำลังบีบอัดรูปภาพ...',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15,
+                        color: Colors.white,
+                      ),
+                    ),
                     const SizedBox(height: 4),
-                    Text('ภาพที่ ${_currentIndex + 1} / $total', style: const TextStyle(color: Colors.white54, fontSize: 12)),
+                    Text(
+                      'ภาพที่ ${_currentIndex + 1} / $total',
+                      style: const TextStyle(
+                        color: Colors.white54,
+                        fontSize: 12,
+                      ),
+                    ),
                   ],
                 ),
-                Text('${_currentProgress.toStringAsFixed(0)}%',
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 22, color: Colors.cyanAccent)),
+                Text(
+                  '${_currentProgress.toStringAsFixed(0)}%',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 22,
+                    color: Colors.cyanAccent,
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: 8),
@@ -427,8 +588,18 @@ class _ImageCompressScreenState extends State<ImageCompressScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('ภาพรวม: ${done}/${total} ภาพ', style: const TextStyle(color: Colors.white54, fontSize: 12)),
-                  Text('${(overallProgress * 100).toStringAsFixed(0)}%', style: const TextStyle(color: Colors.purpleAccent, fontSize: 12, fontWeight: FontWeight.bold)),
+                  Text(
+                    'ภาพรวม: ${done}/${total} ภาพ',
+                    style: const TextStyle(color: Colors.white54, fontSize: 12),
+                  ),
+                  Text(
+                    '${(overallProgress * 100).toStringAsFixed(0)}%',
+                    style: const TextStyle(
+                      color: Colors.purpleAccent,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 ],
               ),
               const SizedBox(height: 6),
@@ -446,7 +617,11 @@ class _ImageCompressScreenState extends State<ImageCompressScreen> {
             const Text(
               'ประมวลผลบนเครื่องแบบ Offline 100%\nโปรดอย่าปิดแอปพลิเคชัน',
               textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.white54, fontSize: 12, height: 1.5),
+              style: TextStyle(
+                color: Colors.white54,
+                fontSize: 12,
+                height: 1.5,
+              ),
             ),
           ],
         ),
@@ -456,9 +631,18 @@ class _ImageCompressScreenState extends State<ImageCompressScreen> {
 
   // ─── PHASE: Results ──────────────────────────────────────────────────────
   Widget _buildResultsState() {
-    final totalOriginalSize = _results.fold<int>(0, (s, r) => s + r.original.lengthSync());
-    final totalCompressedSize = _results.fold<int>(0, (s, r) => s + r.compressed.lengthSync());
-    final reduction = CompressService.getReductionPercentage(totalOriginalSize, totalCompressedSize);
+    final totalOriginalSize = _results.fold<int>(
+      0,
+      (s, r) => s + r.original.lengthSync(),
+    );
+    final totalCompressedSize = _results.fold<int>(
+      0,
+      (s, r) => s + r.compressed.lengthSync(),
+    );
+    final reduction = CompressService.getReductionPercentage(
+      totalOriginalSize,
+      totalCompressedSize,
+    );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -477,41 +661,83 @@ class _ImageCompressScreenState extends State<ImageCompressScreen> {
                   children: [
                     const Row(
                       children: [
-                        Icon(Icons.check_circle_rounded, color: Colors.greenAccent, size: 22),
+                        Icon(
+                          Icons.check_circle_rounded,
+                          color: Colors.greenAccent,
+                          size: 22,
+                        ),
                         SizedBox(width: 8),
-                        Text('ผลลัพธ์การบีบอัด', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white)),
+                        Text(
+                          'ผลลัพธ์การบีบอัด',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                            color: Colors.white,
+                          ),
+                        ),
                       ],
                     ),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(colors: [Color(0xFF00E5FF), Color(0xFF00B0FF)]),
-                        borderRadius: BorderRadius.circular(20),
-                        boxShadow: [BoxShadow(color: const Color(0xFF00E5FF).withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 2))],
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 6,
                       ),
-                      child: Text('ลดลง ${reduction.toStringAsFixed(1)}%',
-                        style: const TextStyle(color: Color(0xFF080614), fontWeight: FontWeight.w900, fontSize: 13)),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFF00E5FF), Color(0xFF00B0FF)],
+                        ),
+                        borderRadius: BorderRadius.circular(20),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFF00E5FF).withOpacity(0.3),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Text(
+                        'ลดลง ${reduction.toStringAsFixed(1)}%',
+                        style: const TextStyle(
+                          color: Color(0xFF080614),
+                          fontWeight: FontWeight.w900,
+                          fontSize: 13,
+                        ),
+                      ),
                     ),
                   ],
                 ),
                 const Divider(color: Colors.white12, height: 24),
                 _buildStatRow('จำนวน:', '${_results.length} ภาพ'),
                 const SizedBox(height: 8),
-                _buildStatRow('เวลาที่ใช้:', '${(_imageTimeTakenMs / 1000).toStringAsFixed(2)} วินาที'),
+                _buildStatRow(
+                  'เวลาที่ใช้:',
+                  '${(_imageTimeTakenMs / 1000).toStringAsFixed(2)} วินาที',
+                ),
                 const SizedBox(height: 8),
-                _buildStatRow('ขนาดรวมก่อน:', CompressService.formatBytes(totalOriginalSize)),
+                _buildStatRow(
+                  'ขนาดรวมก่อน:',
+                  CompressService.formatBytes(totalOriginalSize),
+                ),
                 const SizedBox(height: 8),
-                _buildStatRow('ขนาดรวมหลัง:', CompressService.formatBytes(totalCompressedSize), highlight: true),
+                _buildStatRow(
+                  'ขนาดรวมหลัง:',
+                  CompressService.formatBytes(totalCompressedSize),
+                  highlight: true,
+                ),
                 const SizedBox(height: 16),
                 const Divider(color: Colors.white12, height: 1),
                 const SizedBox(height: 16),
                 SizeVisualizer(
-                  label: 'ขนาดก่อนบีบอัด', bytes: totalOriginalSize, maxBytes: totalOriginalSize,
+                  label: 'ขนาดก่อนบีบอัด',
+                  bytes: totalOriginalSize,
+                  maxBytes: totalOriginalSize,
                   progressColors: const [Color(0xFF8E2DE2), Color(0xFF4A00E0)],
                 ),
                 const SizedBox(height: 16),
                 SizeVisualizer(
-                  label: 'ขนาดหลังบีบอัด', bytes: totalCompressedSize, maxBytes: totalOriginalSize,
+                  label: 'ขนาดหลังบีบอัด',
+                  bytes: totalCompressedSize,
+                  maxBytes: totalOriginalSize,
                   progressColors: const [Color(0xFF00E5FF), Color(0xFF00B0FF)],
                 ),
               ],
@@ -526,7 +752,10 @@ class _ImageCompressScreenState extends State<ImageCompressScreen> {
           final r = entry.value;
           final origSize = r.original.lengthSync();
           final compSize = r.compressed.lengthSync();
-          final red = CompressService.getReductionPercentage(origSize, compSize);
+          final red = CompressService.getReductionPercentage(
+            origSize,
+            compSize,
+          );
           final name = r.original.path.split(Platform.pathSeparator).last;
 
           return Container(
@@ -542,26 +771,72 @@ class _ImageCompressScreenState extends State<ImageCompressScreen> {
                     Row(
                       children: [
                         Container(
-                          width: 28, height: 28,
-                          decoration: BoxDecoration(color: const Color(0xFF00E5FF).withOpacity(0.15), borderRadius: BorderRadius.circular(8)),
+                          width: 28,
+                          height: 28,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF00E5FF).withOpacity(0.15),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
                           alignment: Alignment.center,
-                          child: Text('${i + 1}', style: const TextStyle(color: Color(0xFF00E5FF), fontWeight: FontWeight.bold, fontSize: 12)),
+                          child: Text(
+                            '${i + 1}',
+                            style: const TextStyle(
+                              color: Color(0xFF00E5FF),
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12,
+                            ),
+                          ),
                         ),
                         const SizedBox(width: 10),
-                        Expanded(child: Text(name, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w500), maxLines: 1, overflow: TextOverflow.ellipsis)),
+                        Expanded(
+                          child: Text(
+                            name,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                          decoration: BoxDecoration(color: Colors.greenAccent.withOpacity(0.15), borderRadius: BorderRadius.circular(8)),
-                          child: Text('-${red.toStringAsFixed(0)}%', style: const TextStyle(color: Colors.greenAccent, fontSize: 11, fontWeight: FontWeight.bold)),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 3,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.greenAccent.withOpacity(0.15),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            '-${red.toStringAsFixed(0)}%',
+                            style: const TextStyle(
+                              color: Colors.greenAccent,
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                         ),
                       ],
                     ),
                     const SizedBox(height: 8),
                     Row(
                       children: [
-                        Expanded(child: _buildStatRow('เดิม:', CompressService.formatBytes(origSize))),
+                        Expanded(
+                          child: _buildStatRow(
+                            'เดิม:',
+                            CompressService.formatBytes(origSize),
+                          ),
+                        ),
                         const SizedBox(width: 16),
-                        Expanded(child: _buildStatRow('ใหม่:', CompressService.formatBytes(compSize), highlight: true)),
+                        Expanded(
+                          child: _buildStatRow(
+                            'ใหม่:',
+                            CompressService.formatBytes(compSize),
+                            highlight: true,
+                          ),
+                        ),
                       ],
                     ),
                     // Only show before/after for single image to avoid heavy UI
@@ -569,22 +844,42 @@ class _ImageCompressScreenState extends State<ImageCompressScreen> {
                       const SizedBox(height: 12),
                       const Padding(
                         padding: EdgeInsets.only(bottom: 8.0),
-                        child: Text('เปรียบเทียบรูปภาพ', style: TextStyle(color: Colors.white70, fontWeight: FontWeight.bold)),
+                        child: Text(
+                          'เปรียบเทียบรูปภาพ',
+                          style: TextStyle(
+                            color: Colors.white70,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                       ),
-                      BeforeAfterSlider(beforeImage: r.original, afterImage: r.compressed, height: 400),
+                      BeforeAfterSlider(
+                        beforeImage: r.original,
+                        afterImage: r.compressed,
+                        height: 400,
+                      ),
                     ],
                     const SizedBox(height: 10),
                     Row(
                       children: [
                         Expanded(
                           child: OutlinedButton.icon(
-                            onPressed: () => MediaUtility.saveToGallery(context, r.compressed, isVideo: false),
+                            onPressed:
+                                () => MediaUtility.saveToGallery(
+                                  context,
+                                  r.compressed,
+                                  isVideo: false,
+                                ),
                             icon: const Icon(Icons.save_alt_rounded, size: 16),
-                            label: const Text('บันทึก', style: TextStyle(fontSize: 12)),
+                            label: const Text(
+                              'บันทึก',
+                              style: TextStyle(fontSize: 12),
+                            ),
                             style: OutlinedButton.styleFrom(
                               foregroundColor: const Color(0xFF00E5FF),
                               side: const BorderSide(color: Color(0xFF00E5FF)),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
                               padding: const EdgeInsets.symmetric(vertical: 10),
                             ),
                           ),
@@ -592,13 +887,24 @@ class _ImageCompressScreenState extends State<ImageCompressScreen> {
                         const SizedBox(width: 8),
                         Expanded(
                           child: OutlinedButton.icon(
-                            onPressed: () => MediaUtility.shareFile(r.compressed, 'compressed_${i + 1}.jpg'),
+                            onPressed:
+                                () => MediaUtility.shareFile(
+                                  r.compressed,
+                                  'compressed_${i + 1}.jpg',
+                                ),
                             icon: const Icon(Icons.share, size: 16),
-                            label: const Text('แชร์', style: TextStyle(fontSize: 12)),
+                            label: const Text(
+                              'แชร์',
+                              style: TextStyle(fontSize: 12),
+                            ),
                             style: OutlinedButton.styleFrom(
                               foregroundColor: Colors.purpleAccent,
-                              side: const BorderSide(color: Colors.purpleAccent),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              side: const BorderSide(
+                                color: Colors.purpleAccent,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
                               padding: const EdgeInsets.symmetric(vertical: 10),
                             ),
                           ),
@@ -615,7 +921,10 @@ class _ImageCompressScreenState extends State<ImageCompressScreen> {
         const SizedBox(height: 8),
         TextButton(
           onPressed: _reset,
-          child: const Text('บีบอัดภาพอื่น', style: TextStyle(color: Colors.cyanAccent)),
+          child: const Text(
+            'บีบอัดภาพอื่น',
+            style: TextStyle(color: Colors.cyanAccent),
+          ),
         ),
         const SizedBox(height: 16),
       ],

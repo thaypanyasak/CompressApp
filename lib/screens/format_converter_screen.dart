@@ -1,12 +1,13 @@
 import 'dart:io';
-import 'package:flutter/material.dart';
+
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/material.dart';
 import 'package:image/image.dart' as img;
 import 'package:path_provider/path_provider.dart';
-import '../compress_service.dart';
-import '../widgets/glowing_container.dart';
-import '../widgets/glow_picker_area.dart';
+
 import '../utils/media_utility.dart';
+import '../widgets/glow_picker_area.dart';
+import '../widgets/glowing_container.dart';
 
 class FormatConverterScreen extends StatefulWidget {
   const FormatConverterScreen({super.key});
@@ -24,17 +25,19 @@ class _FormatConverterScreenState extends State<FormatConverterScreen> {
   String _progressText = '';
 
   Future<void> _pickImages() async {
-    final result = await FilePicker.platform.pickFiles(
+    final result = await FilePicker.pickFiles(
       type: FileType.image,
       allowMultiple: true,
-      allowCompression: false,
+      withData: false,
+      withReadStream: false,
     );
 
     if (result != null && result.paths.isNotEmpty) {
-      final validFiles = result.paths
-          .where((path) => path != null)
-          .map((path) => File(path!))
-          .toList();
+      final validFiles =
+          result.paths
+              .where((path) => path != null)
+              .map((path) => File(path!))
+              .toList();
 
       setState(() {
         _selectedFiles = validFiles;
@@ -61,10 +64,11 @@ class _FormatConverterScreenState extends State<FormatConverterScreen> {
       for (int i = 0; i < _selectedFiles.length; i++) {
         final file = _selectedFiles[i];
         final currentFileNum = i + 1;
-        
+
         setState(() {
           _progress = (i + 0.5) / _selectedFiles.length;
-          _progressText = 'กำลังแปลงไฟล์ที่ $currentFileNum จาก ${_selectedFiles.length}...';
+          _progressText =
+              'กำลังแปลงไฟล์ที่ $currentFileNum จาก ${_selectedFiles.length}...';
         });
 
         final bytes = await file.readAsBytes();
@@ -73,7 +77,8 @@ class _FormatConverterScreenState extends State<FormatConverterScreen> {
         if (image != null) {
           final timeStamp = DateTime.now().millisecondsSinceEpoch;
           final outExtension = _targetFormat.toLowerCase();
-          final outputPath = '${tempDir.path}${Platform.pathSeparator}converted_${i}_$timeStamp.$outExtension';
+          final outputPath =
+              '${tempDir.path}${Platform.pathSeparator}converted_${i}_$timeStamp.$outExtension';
 
           List<int> encodedBytes;
           if (_targetFormat == 'PNG') {
@@ -133,10 +138,16 @@ class _FormatConverterScreenState extends State<FormatConverterScreen> {
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 14),
           decoration: BoxDecoration(
-            color: isSelected ? const Color(0xFF00E5FF).withOpacity(0.15) : Colors.white.withOpacity(0.03),
+            color:
+                isSelected
+                    ? const Color(0xFF00E5FF).withOpacity(0.15)
+                    : Colors.white.withOpacity(0.03),
             borderRadius: BorderRadius.circular(14),
             border: Border.all(
-              color: isSelected ? const Color(0xFF00E5FF) : Colors.white.withOpacity(0.08),
+              color:
+                  isSelected
+                      ? const Color(0xFF00E5FF)
+                      : Colors.white.withOpacity(0.08),
               width: 1.5,
             ),
           ),
@@ -181,16 +192,27 @@ class _FormatConverterScreenState extends State<FormatConverterScreen> {
                   children: [
                     Row(
                       children: [
-                        const Icon(Icons.collections_outlined, color: Colors.purpleAccent, size: 20),
+                        const Icon(
+                          Icons.collections_outlined,
+                          color: Colors.purpleAccent,
+                          size: 20,
+                        ),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
                             'เลือกทั้งหมด ${_selectedFiles.length} รูปภาพ',
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white),
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                              color: Colors.white,
+                            ),
                           ),
                         ),
                         IconButton(
-                          icon: const Icon(Icons.refresh_rounded, color: Colors.white60),
+                          icon: const Icon(
+                            Icons.refresh_rounded,
+                            color: Colors.white60,
+                          ),
                           onPressed: _reset,
                         ),
                       ],
@@ -198,7 +220,10 @@ class _FormatConverterScreenState extends State<FormatConverterScreen> {
                     const SizedBox(height: 12),
                     Text(
                       'ไฟล์ที่เลือก: ${_selectedFiles.map((f) => f.path.split(Platform.pathSeparator).last).take(3).join(', ')}${_selectedFiles.length > 3 ? '...' : ''}',
-                      style: const TextStyle(color: Colors.white60, fontSize: 12),
+                      style: const TextStyle(
+                        color: Colors.white60,
+                        fontSize: 12,
+                      ),
                     ),
                   ],
                 ),
@@ -216,7 +241,11 @@ class _FormatConverterScreenState extends State<FormatConverterScreen> {
                   children: [
                     const Text(
                       'เลือกนามสกุลไฟล์ปลายทาง (Target Format)',
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Colors.white),
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15,
+                        color: Colors.white,
+                      ),
                     ),
                     const SizedBox(height: 16),
                     Row(
@@ -242,7 +271,9 @@ class _FormatConverterScreenState extends State<FormatConverterScreen> {
                 padding: const EdgeInsets.symmetric(vertical: 18),
                 backgroundColor: const Color(0xFF00E5FF),
                 foregroundColor: Colors.black,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
                 elevation: 8,
               ),
             ),
@@ -264,12 +295,19 @@ class _FormatConverterScreenState extends State<FormatConverterScreen> {
                     const SizedBox(height: 20),
                     Text(
                       '${(_progress * 100).toStringAsFixed(0)}%',
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 24, color: Colors.cyanAccent),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 24,
+                        color: Colors.cyanAccent,
+                      ),
                     ),
                     const SizedBox(height: 8),
                     Text(
                       _progressText,
-                      style: const TextStyle(color: Colors.white70, fontSize: 13),
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 13,
+                      ),
                     ),
                   ],
                 ),
@@ -287,25 +325,40 @@ class _FormatConverterScreenState extends State<FormatConverterScreen> {
                   children: [
                     const Row(
                       children: [
-                        Icon(Icons.check_circle_rounded, color: Colors.greenAccent, size: 24),
+                        Icon(
+                          Icons.check_circle_rounded,
+                          color: Colors.greenAccent,
+                          size: 24,
+                        ),
                         SizedBox(width: 8),
                         Text(
                           'แปลงไฟล์สำเร็จแล้ว!',
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.white),
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 18,
+                            color: Colors.white,
+                          ),
                         ),
                       ],
                     ),
                     const SizedBox(height: 12),
                     Text(
                       'แปลงเรียบร้อยแล้ว ${_convertedFiles.length} ไฟล์ เป็นนามสกุล .$_targetFormat',
-                      style: const TextStyle(color: Colors.white70, fontSize: 13),
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 13,
+                      ),
                     ),
                     const SizedBox(height: 20),
 
                     ElevatedButton.icon(
                       onPressed: () {
                         for (final file in _convertedFiles) {
-                          MediaUtility.saveToGallery(context, file, isVideo: false);
+                          MediaUtility.saveToGallery(
+                            context,
+                            file,
+                            isVideo: false,
+                          );
                         }
                       },
                       icon: const Icon(Icons.save_alt_rounded),
@@ -314,19 +367,24 @@ class _FormatConverterScreenState extends State<FormatConverterScreen> {
                         padding: const EdgeInsets.symmetric(vertical: 16),
                         backgroundColor: const Color(0xFF00E5FF),
                         foregroundColor: Colors.black,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
                       ),
                     ),
                     const SizedBox(height: 12),
                     TextButton(
                       onPressed: _reset,
-                      child: const Text('แปลงไฟล์รูปภาพอื่น', style: TextStyle(color: Colors.cyanAccent)),
+                      child: const Text(
+                        'แปลงไฟล์รูปภาพอื่น',
+                        style: TextStyle(color: Colors.cyanAccent),
+                      ),
                     ),
                   ],
                 ),
               ),
             ),
-          ]
+          ],
         ],
       ),
     );

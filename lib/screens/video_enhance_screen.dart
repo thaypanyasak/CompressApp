@@ -58,10 +58,11 @@ class _VideoEnhanceScreenState extends State<VideoEnhanceScreen> {
   Future<void> _pickVideos() async {
     setState(() => _isPickingFile = true);
     try {
-      final result = await FilePicker.platform.pickFiles(
+      final result = await FilePicker.pickFiles(
         type: FileType.video,
         allowMultiple: true,
-        allowCompression: false,
+        withData: false,
+        withReadStream: false,
       );
       if (result != null && result.files.isNotEmpty) {
         final files =

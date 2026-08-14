@@ -1,16 +1,18 @@
 import 'dart:async';
 import 'dart:io';
-import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
+
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:image/image.dart' as img;
 import 'package:path_provider/path_provider.dart';
-import '../enhance_service.dart';
+
 import '../compress_service.dart';
-import '../widgets/glowing_container.dart';
-import '../widgets/glow_picker_area.dart';
-import '../widgets/before_after_slider.dart';
+import '../enhance_service.dart';
 import '../utils/media_utility.dart';
+import '../widgets/before_after_slider.dart';
+import '../widgets/glow_picker_area.dart';
+import '../widgets/glowing_container.dart';
 
 class ImageEnhanceScreen extends StatefulWidget {
   const ImageEnhanceScreen({super.key});
@@ -24,7 +26,12 @@ class _EnhanceResult {
   final File enhanced;
   final String? originalResolution;
   final String? enhancedResolution;
-  _EnhanceResult({required this.original, required this.enhanced, this.originalResolution, this.enhancedResolution});
+  _EnhanceResult({
+    required this.original,
+    required this.enhanced,
+    this.originalResolution,
+    this.enhancedResolution,
+  });
 }
 
 class _ImageEnhanceScreenState extends State<ImageEnhanceScreen> {
@@ -43,17 +50,19 @@ class _ImageEnhanceScreenState extends State<ImageEnhanceScreen> {
   int _enhanceTimeTakenMs = 0;
 
   Future<void> _pickImages() async {
-    final result = await FilePicker.platform.pickFiles(
+    final result = await FilePicker.pickFiles(
       type: FileType.image,
       allowMultiple: true,
-      allowCompression: false,
+      withData: false,
+      withReadStream: false,
     );
 
     if (result != null && result.files.isNotEmpty) {
-      final files = result.files
-          .where((f) => f.path != null)
-          .map((f) => File(f.path!))
-          .toList();
+      final files =
+          result.files
+              .where((f) => f.path != null)
+              .map((f) => File(f.path!))
+              .toList();
       setState(() {
         _selectedImages = files;
         _results = [];
@@ -67,7 +76,10 @@ class _ImageEnhanceScreenState extends State<ImageEnhanceScreen> {
     _currentProgress = 0.0;
     _progressTimer?.cancel();
     _progressTimer = Timer.periodic(const Duration(milliseconds: 200), (timer) {
-      if (!mounted) { timer.cancel(); return; }
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
       setState(() {
         if (_currentProgress < 80.0) {
           _currentProgress += (80.0 - _currentProgress) * 0.03 + 0.5;
@@ -123,7 +135,8 @@ class _ImageEnhanceScreenState extends State<ImageEnhanceScreen> {
 
       try {
         final tempDir = await getTemporaryDirectory();
-        final outputPath = '${tempDir.path}${Platform.pathSeparator}enhanced_${DateTime.now().millisecondsSinceEpoch}.jpg';
+        final outputPath =
+            '${tempDir.path}${Platform.pathSeparator}enhanced_${DateTime.now().millisecondsSinceEpoch}.jpg';
 
         final params = ImageEnhanceParams(
           sourcePath: srcFile.path,
@@ -140,20 +153,27 @@ class _ImageEnhanceScreenState extends State<ImageEnhanceScreen> {
         await Future.delayed(const Duration(milliseconds: 200));
 
         if (mounted) {
-          final enhancedRes = '${result.enhancedWidth} x ${result.enhancedHeight}';
-          setState(() => _results.add(_EnhanceResult(
-            original: srcFile,
-            enhanced: File(result.path),
-            originalResolution: originalRes,
-            enhancedResolution: enhancedRes,
-          )));
+          final enhancedRes =
+              '${result.enhancedWidth} x ${result.enhancedHeight}';
+          setState(
+            () => _results.add(
+              _EnhanceResult(
+                original: srcFile,
+                enhanced: File(result.path),
+                originalResolution: originalRes,
+                enhancedResolution: enhancedRes,
+              ),
+            ),
+          );
         }
       } catch (e) {
         _finishProgress();
         if (!mounted) break;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('ไฟล์ ${srcFile.path.split(Platform.pathSeparator).last}: $e'),
+            content: Text(
+              'ไฟล์ ${srcFile.path.split(Platform.pathSeparator).last}: $e',
+            ),
             backgroundColor: Colors.redAccent,
           ),
         );
@@ -194,12 +214,19 @@ class _ImageEnhanceScreenState extends State<ImageEnhanceScreen> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(label, style: const TextStyle(color: Colors.white60, fontSize: 13)),
+        Text(
+          label,
+          style: const TextStyle(color: Colors.white60, fontSize: 13),
+        ),
         Flexible(
           child: Text(
             value,
             textAlign: TextAlign.right,
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: highlight ? Colors.cyanAccent : Colors.white),
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 13,
+              color: highlight ? Colors.cyanAccent : Colors.white,
+            ),
           ),
         ),
       ],
@@ -214,10 +241,16 @@ class _ImageEnhanceScreenState extends State<ImageEnhanceScreen> {
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 12),
           decoration: BoxDecoration(
-            color: isSelected ? const Color(0xFFD500F9).withOpacity(0.15) : Colors.white.withOpacity(0.03),
+            color:
+                isSelected
+                    ? const Color(0xFFD500F9).withOpacity(0.15)
+                    : Colors.white.withOpacity(0.03),
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: isSelected ? const Color(0xFFD500F9) : Colors.white.withOpacity(0.08),
+              color:
+                  isSelected
+                      ? const Color(0xFFD500F9)
+                      : Colors.white.withOpacity(0.08),
               width: 1.5,
             ),
           ),
@@ -264,21 +297,35 @@ class _ImageEnhanceScreenState extends State<ImageEnhanceScreen> {
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.photo_size_select_actual_outlined, color: Colors.cyanAccent, size: 20),
+                    const Icon(
+                      Icons.photo_size_select_actual_outlined,
+                      color: Colors.cyanAccent,
+                      size: 20,
+                    ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         'รูปภาพที่เลือก (${_selectedImages.length} ภาพ)',
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                          color: Colors.white,
+                        ),
                       ),
                     ),
                     IconButton(
-                      icon: const Icon(Icons.add_circle_outline, color: Color(0xFF00E5FF)),
+                      icon: const Icon(
+                        Icons.add_circle_outline,
+                        color: Color(0xFF00E5FF),
+                      ),
                       tooltip: 'เพิ่มรูปภาพ',
                       onPressed: _pickImages,
                     ),
                     IconButton(
-                      icon: const Icon(Icons.refresh_rounded, color: Colors.white60),
+                      icon: const Icon(
+                        Icons.refresh_rounded,
+                        color: Colors.white60,
+                      ),
                       onPressed: _reset,
                     ),
                   ],
@@ -288,14 +335,28 @@ class _ImageEnhanceScreenState extends State<ImageEnhanceScreen> {
                   spacing: 8,
                   runSpacing: 8,
                   children: List.generate(_selectedImages.length, (i) {
-                    final name = _selectedImages[i].path.split(Platform.pathSeparator).last;
+                    final name =
+                        _selectedImages[i].path
+                            .split(Platform.pathSeparator)
+                            .last;
                     return Chip(
-                      avatar: const Icon(Icons.image, size: 16, color: Color(0xFF00E5FF)),
+                      avatar: const Icon(
+                        Icons.image,
+                        size: 16,
+                        color: Color(0xFF00E5FF),
+                      ),
                       label: Text(
                         name.length > 18 ? '${name.substring(0, 15)}...' : name,
-                        style: const TextStyle(fontSize: 11, color: Colors.white),
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: Colors.white,
+                        ),
                       ),
-                      deleteIcon: const Icon(Icons.close, size: 14, color: Colors.redAccent),
+                      deleteIcon: const Icon(
+                        Icons.close,
+                        size: 14,
+                        color: Colors.redAccent,
+                      ),
                       onDeleted: () => _removeImage(i),
                       backgroundColor: Colors.white.withOpacity(0.07),
                       side: BorderSide(color: Colors.white.withOpacity(0.12)),
@@ -320,13 +381,31 @@ class _ImageEnhanceScreenState extends State<ImageEnhanceScreen> {
               children: [
                 const Row(
                   children: [
-                    Icon(Icons.tune_rounded, color: Colors.purpleAccent, size: 20),
+                    Icon(
+                      Icons.tune_rounded,
+                      color: Colors.purpleAccent,
+                      size: 20,
+                    ),
                     SizedBox(width: 8),
-                    Text('ตั้งค่าการเพิ่มความละเอียดระดับ 4K', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white)),
+                    Text(
+                      'ตั้งค่าการเพิ่มความละเอียดระดับ 4K',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                        color: Colors.white,
+                      ),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 20),
-                const Text('ระดับการขยายความละเอียด (Upscale)', style: TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.bold)),
+                const Text(
+                  'ระดับการขยายความละเอียด (Upscale)',
+                  style: TextStyle(
+                    color: Colors.white70,
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
                 const SizedBox(height: 10),
                 Row(
                   children: [
@@ -340,17 +419,41 @@ class _ImageEnhanceScreenState extends State<ImageEnhanceScreen> {
                 const SizedBox(height: 20),
                 Row(
                   children: [
-                    const Expanded(child: Text('ระดับความคมชัด (Sharpness)', style: TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.bold))),
+                    const Expanded(
+                      child: Text(
+                        'ระดับความคมชัด (Sharpness)',
+                        style: TextStyle(
+                          color: Colors.white70,
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(color: const Color(0xFFD500F9).withOpacity(0.2), borderRadius: BorderRadius.circular(8)),
-                      child: Text(_getSharpnessLabel(_enhanceSharpness), style: const TextStyle(color: Colors.cyanAccent, fontSize: 11, fontWeight: FontWeight.bold)),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 3,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFD500F9).withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        _getSharpnessLabel(_enhanceSharpness),
+                        style: const TextStyle(
+                          color: Colors.cyanAccent,
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ),
                   ],
                 ),
                 Slider(
                   value: _enhanceSharpness,
-                  min: 1.0, max: 4.0, divisions: 3,
+                  min: 1.0,
+                  max: 4.0,
+                  divisions: 3,
                   activeColor: const Color(0xFFD500F9),
                   inactiveColor: Colors.white10,
                   onChanged: (val) => setState(() => _enhanceSharpness = val),
@@ -362,12 +465,25 @@ class _ImageEnhanceScreenState extends State<ImageEnhanceScreen> {
                       child: FilterChip(
                         label: const Text('HDR Color Boost'),
                         selected: _enableHdr,
-                        labelStyle: TextStyle(color: _enableHdr ? Colors.cyanAccent : Colors.white60, fontSize: 11, fontWeight: _enableHdr ? FontWeight.bold : FontWeight.normal),
+                        labelStyle: TextStyle(
+                          color:
+                              _enableHdr ? Colors.cyanAccent : Colors.white60,
+                          fontSize: 11,
+                          fontWeight:
+                              _enableHdr ? FontWeight.bold : FontWeight.normal,
+                        ),
                         onSelected: (val) => setState(() => _enableHdr = val),
-                        selectedColor: const Color(0xFFD500F9).withOpacity(0.25),
+                        selectedColor: const Color(
+                          0xFFD500F9,
+                        ).withOpacity(0.25),
                         checkmarkColor: Colors.cyanAccent,
                         backgroundColor: Colors.white.withOpacity(0.04),
-                        side: BorderSide(color: _enableHdr ? const Color(0xFFD500F9) : Colors.white12),
+                        side: BorderSide(
+                          color:
+                              _enableHdr
+                                  ? const Color(0xFFD500F9)
+                                  : Colors.white12,
+                        ),
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -375,12 +491,30 @@ class _ImageEnhanceScreenState extends State<ImageEnhanceScreen> {
                       child: FilterChip(
                         label: const Text('Denoise & Smooth'),
                         selected: _enableDenoise,
-                        labelStyle: TextStyle(color: _enableDenoise ? Colors.cyanAccent : Colors.white60, fontSize: 11, fontWeight: _enableDenoise ? FontWeight.bold : FontWeight.normal),
-                        onSelected: (val) => setState(() => _enableDenoise = val),
-                        selectedColor: const Color(0xFFD500F9).withOpacity(0.25),
+                        labelStyle: TextStyle(
+                          color:
+                              _enableDenoise
+                                  ? Colors.cyanAccent
+                                  : Colors.white60,
+                          fontSize: 11,
+                          fontWeight:
+                              _enableDenoise
+                                  ? FontWeight.bold
+                                  : FontWeight.normal,
+                        ),
+                        onSelected:
+                            (val) => setState(() => _enableDenoise = val),
+                        selectedColor: const Color(
+                          0xFFD500F9,
+                        ).withOpacity(0.25),
                         checkmarkColor: Colors.cyanAccent,
                         backgroundColor: Colors.white.withOpacity(0.04),
-                        side: BorderSide(color: _enableDenoise ? const Color(0xFFD500F9) : Colors.white12),
+                        side: BorderSide(
+                          color:
+                              _enableDenoise
+                                  ? const Color(0xFFD500F9)
+                                  : Colors.white12,
+                        ),
                       ),
                     ),
                   ],
@@ -390,14 +524,21 @@ class _ImageEnhanceScreenState extends State<ImageEnhanceScreen> {
                   onPressed: _enhanceAll,
                   icon: const Icon(Icons.auto_awesome, size: 20),
                   label: Text(
-                    _selectedImages.length == 1 ? 'เริ่มประมวลผลเพิ่มความคมชัด' : 'เพิ่มความคมชัด ${_selectedImages.length} ภาพ',
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                    _selectedImages.length == 1
+                        ? 'เริ่มประมวลผลเพิ่มความคมชัด'
+                        : 'เพิ่มความคมชัด ${_selectedImages.length} ภาพ',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 15,
+                    ),
                   ),
                   style: ElevatedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 18),
                     backgroundColor: const Color(0xFFD500F9),
                     foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
                     elevation: 8,
                     shadowColor: const Color(0xFFD500F9).withOpacity(0.4),
                   ),
@@ -414,7 +555,8 @@ class _ImageEnhanceScreenState extends State<ImageEnhanceScreen> {
   Widget _buildEnhancingState() {
     final total = _selectedImages.length;
     final done = _results.length;
-    final overallProgress = total == 0 ? 0.0 : (done + _currentProgress / 100) / total;
+    final overallProgress =
+        total == 0 ? 0.0 : (done + _currentProgress / 100) / total;
 
     return GlowingContainer(
       gradientColors: const [Color(0xFF00E5FF), Color(0xFFD500F9)],
@@ -431,13 +573,32 @@ class _ImageEnhanceScreenState extends State<ImageEnhanceScreen> {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('กำลังเพิ่มความคมชัด 4K...', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Colors.white)),
+                    const Text(
+                      'กำลังเพิ่มความคมชัด 4K...',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15,
+                        color: Colors.white,
+                      ),
+                    ),
                     const SizedBox(height: 4),
-                    Text('ภาพที่ ${_currentIndex + 1} / $total', style: const TextStyle(color: Colors.white54, fontSize: 12)),
+                    Text(
+                      'ภาพที่ ${_currentIndex + 1} / $total',
+                      style: const TextStyle(
+                        color: Colors.white54,
+                        fontSize: 12,
+                      ),
+                    ),
                   ],
                 ),
-                Text('${_currentProgress.toStringAsFixed(0)}%',
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 22, color: Colors.cyanAccent)),
+                Text(
+                  '${_currentProgress.toStringAsFixed(0)}%',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 22,
+                    color: Colors.cyanAccent,
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: 8),
@@ -455,8 +616,18 @@ class _ImageEnhanceScreenState extends State<ImageEnhanceScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('ภาพรวม: ${done}/${total} ภาพ', style: const TextStyle(color: Colors.white54, fontSize: 12)),
-                  Text('${(overallProgress * 100).toStringAsFixed(0)}%', style: const TextStyle(color: Colors.purpleAccent, fontSize: 12, fontWeight: FontWeight.bold)),
+                  Text(
+                    'ภาพรวม: ${done}/${total} ภาพ',
+                    style: const TextStyle(color: Colors.white54, fontSize: 12),
+                  ),
+                  Text(
+                    '${(overallProgress * 100).toStringAsFixed(0)}%',
+                    style: const TextStyle(
+                      color: Colors.purpleAccent,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 ],
               ),
               const SizedBox(height: 6),
@@ -474,7 +645,11 @@ class _ImageEnhanceScreenState extends State<ImageEnhanceScreen> {
             const Text(
               'ประมวลผลบนเครื่องแบบ Offline 100%\nโปรดอย่าปิดแอปพลิเคชัน',
               textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.white54, fontSize: 12, height: 1.5),
+              style: TextStyle(
+                color: Colors.white54,
+                fontSize: 12,
+                height: 1.5,
+              ),
             ),
           ],
         ),
@@ -498,15 +673,29 @@ class _ImageEnhanceScreenState extends State<ImageEnhanceScreen> {
               children: [
                 const Row(
                   children: [
-                    Icon(Icons.check_circle_rounded, color: Colors.greenAccent, size: 24),
+                    Icon(
+                      Icons.check_circle_rounded,
+                      color: Colors.greenAccent,
+                      size: 24,
+                    ),
                     SizedBox(width: 8),
-                    Text('เพิ่มความคมชัดเรียบร้อยแล้ว!', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.white)),
+                    Text(
+                      'เพิ่มความคมชัดเรียบร้อยแล้ว!',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18,
+                        color: Colors.white,
+                      ),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 8),
                 _buildStatRow('จำนวน:', '${_results.length} ภาพ'),
                 const SizedBox(height: 4),
-                _buildStatRow('เวลาที่ใช้:', '${(_enhanceTimeTakenMs / 1000).toStringAsFixed(2)} วินาที'),
+                _buildStatRow(
+                  'เวลาที่ใช้:',
+                  '${(_enhanceTimeTakenMs / 1000).toStringAsFixed(2)} วินาที',
+                ),
               ],
             ),
           ),
@@ -532,47 +721,113 @@ class _ImageEnhanceScreenState extends State<ImageEnhanceScreen> {
                     Row(
                       children: [
                         Container(
-                          width: 28, height: 28,
-                          decoration: BoxDecoration(color: const Color(0xFFD500F9).withOpacity(0.15), borderRadius: BorderRadius.circular(8)),
+                          width: 28,
+                          height: 28,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFD500F9).withOpacity(0.15),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
                           alignment: Alignment.center,
-                          child: Text('${i + 1}', style: const TextStyle(color: Color(0xFFD500F9), fontWeight: FontWeight.bold, fontSize: 12)),
+                          child: Text(
+                            '${i + 1}',
+                            style: const TextStyle(
+                              color: Color(0xFFD500F9),
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12,
+                            ),
+                          ),
                         ),
                         const SizedBox(width: 10),
-                        Expanded(child: Text(name, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w500), maxLines: 1, overflow: TextOverflow.ellipsis)),
+                        Expanded(
+                          child: Text(
+                            name,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                          decoration: BoxDecoration(color: const Color(0xFFD500F9).withOpacity(0.15), borderRadius: BorderRadius.circular(8)),
-                          child: const Text('✓ เสร็จ', style: TextStyle(color: Color(0xFFD500F9), fontSize: 11, fontWeight: FontWeight.bold)),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 3,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFD500F9).withOpacity(0.15),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Text(
+                            '✓ เสร็จ',
+                            style: TextStyle(
+                              color: Color(0xFFD500F9),
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                         ),
                       ],
                     ),
                     const SizedBox(height: 8),
-                    if (r.originalResolution != null) _buildStatRow('ความละเอียดต้นฉบับ:', r.originalResolution!),
+                    if (r.originalResolution != null)
+                      _buildStatRow(
+                        'ความละเอียดต้นฉบับ:',
+                        r.originalResolution!,
+                      ),
                     if (r.enhancedResolution != null) ...[
                       const SizedBox(height: 4),
-                      _buildStatRow('ความละเอียดใหม่:', r.enhancedResolution!, highlight: true),
+                      _buildStatRow(
+                        'ความละเอียดใหม่:',
+                        r.enhancedResolution!,
+                        highlight: true,
+                      ),
                     ],
                     const SizedBox(height: 4),
-                    _buildStatRow('ขนาดไฟล์ใหม่:', CompressService.formatBytes(r.enhanced.lengthSync())),
+                    _buildStatRow(
+                      'ขนาดไฟล์ใหม่:',
+                      CompressService.formatBytes(r.enhanced.lengthSync()),
+                    ),
                     // Before/After only for single image
                     if (_results.length == 1) ...[
                       const SizedBox(height: 12),
-                      const Text('เปรียบเทียบรูปภาพ', style: TextStyle(color: Colors.white70, fontWeight: FontWeight.bold)),
+                      const Text(
+                        'เปรียบเทียบรูปภาพ',
+                        style: TextStyle(
+                          color: Colors.white70,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                       const SizedBox(height: 8),
-                      BeforeAfterSlider(beforeImage: r.original, afterImage: r.enhanced, height: 400),
+                      BeforeAfterSlider(
+                        beforeImage: r.original,
+                        afterImage: r.enhanced,
+                        height: 400,
+                      ),
                     ],
                     const SizedBox(height: 10),
                     Row(
                       children: [
                         Expanded(
                           child: OutlinedButton.icon(
-                            onPressed: () => MediaUtility.saveToGallery(context, r.enhanced, isVideo: false),
+                            onPressed:
+                                () => MediaUtility.saveToGallery(
+                                  context,
+                                  r.enhanced,
+                                  isVideo: false,
+                                ),
                             icon: const Icon(Icons.save_alt_rounded, size: 16),
-                            label: const Text('บันทึก', style: TextStyle(fontSize: 12)),
+                            label: const Text(
+                              'บันทึก',
+                              style: TextStyle(fontSize: 12),
+                            ),
                             style: OutlinedButton.styleFrom(
                               foregroundColor: const Color(0xFF00E5FF),
                               side: const BorderSide(color: Color(0xFF00E5FF)),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
                               padding: const EdgeInsets.symmetric(vertical: 10),
                             ),
                           ),
@@ -580,13 +835,24 @@ class _ImageEnhanceScreenState extends State<ImageEnhanceScreen> {
                         const SizedBox(width: 8),
                         Expanded(
                           child: OutlinedButton.icon(
-                            onPressed: () => MediaUtility.shareFile(r.enhanced, 'enhanced_${i + 1}.jpg'),
+                            onPressed:
+                                () => MediaUtility.shareFile(
+                                  r.enhanced,
+                                  'enhanced_${i + 1}.jpg',
+                                ),
                             icon: const Icon(Icons.share, size: 16),
-                            label: const Text('แชร์', style: TextStyle(fontSize: 12)),
+                            label: const Text(
+                              'แชร์',
+                              style: TextStyle(fontSize: 12),
+                            ),
                             style: OutlinedButton.styleFrom(
                               foregroundColor: Colors.purpleAccent,
-                              side: const BorderSide(color: Colors.purpleAccent),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              side: const BorderSide(
+                                color: Colors.purpleAccent,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
                               padding: const EdgeInsets.symmetric(vertical: 10),
                             ),
                           ),
@@ -603,7 +869,10 @@ class _ImageEnhanceScreenState extends State<ImageEnhanceScreen> {
         const SizedBox(height: 8),
         TextButton(
           onPressed: _reset,
-          child: const Text('เพิ่มความคมชัดรูปภาพอื่น', style: TextStyle(color: Colors.cyanAccent)),
+          child: const Text(
+            'เพิ่มความคมชัดรูปภาพอื่น',
+            style: TextStyle(color: Colors.cyanAccent),
+          ),
         ),
         const SizedBox(height: 16),
       ],
